@@ -62,7 +62,7 @@ Channel navigation now uses ViewModel-owned observable focus state. Category foc
 
 Room schema v2 adds epg_programs and idx_epg_channel_time(channel_id, start_time), with a non-destructive v1-to-v2 migration. EPG timestamps are 64-bit milliseconds. The current XMLTV repository still uses its existing in-memory guide; writing guide data to Room is not yet connected.
 
-EpgDao.getCurrentProgram(channelId, now) maps Room columns to the existing EpgProgram domain model. It uses an exclusive end time, prefers the latest-starting overlap, breaks ties by ID, and returns null when no valid current programme exists.
+EpgDao.getCurrentProgram(channelId, now) returns EpgProgramEntity with its database ID. It uses an exclusive end time, prefers the latest-starting overlap, breaks ties by ID, and returns null when no valid current programme exists.
 
 VLC now retries playback errors up to three times with 1/2/4-second delays. Playing resets the counter; pause, stop, release and channel changes cancel pending retries. URL loading is owned by the controller, and generation tokens discard queued events from older attempts. Retry policy unit tests pass; live-network recovery is not yet verified end-to-end.
 
@@ -80,3 +80,6 @@ PlayerViewModel exposes Pane/currentPane, pane-aware Up/Down, and clamped switch
 Category/channel remote Up/Down and OK now invoke ViewModel focus actions and selection events. Bounds use the actual visible rows, with All Channels at category index zero. Selections are collected only while STARTED and respect dialogs/PIN checks. Native pane-level dispatch remains the single key consumer; the global observational key flow is not subscribed a second time. Rail/player controls and Back retain native/existing behavior.
 
 Schema v4 adds separate channel playlistId and group indexes, preserving existing composite indexes and all entity fields. The migration creates indexes without changing stored rows.
+
+
+DAO updates: getAllChannels sorts by group COLLATE NOCASE then source index; getFavorites sorts by name. deleteByPlaylist is available. EpgDao supports replacement inserts and cleanup of rows ending strictly before the supplied cutoff; current lookup retains exclusive end times and deterministic overlap handling. data.local DAO aliases are provided.
