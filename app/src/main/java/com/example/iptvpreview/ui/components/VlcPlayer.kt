@@ -33,7 +33,7 @@ fun VlcPlayer(
     val lifecycleOwner = LocalLifecycleOwner.current
     val currentOnError by rememberUpdatedState(onError)
     val currentOnControllerReady by rememberUpdatedState(onControllerReady)
-    val libVlc = remember { LibVLC(context.applicationContext, arrayListOf("--no-video-title-show", "--network-caching=3000")) }
+    val libVlc = remember { LibVLC(context.applicationContext, arrayListOf("--no-video-title-show", "--network-caching=1500", "--file-caching=1500")) }
     val player = remember(libVlc) { MediaPlayer(libVlc) }
     val controller = remember(player, libVlc) { VlcPlayerController(player, libVlc) }
     val layout = remember(context) { VLCVideoLayout(context) }
