@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.kapt")
 }
 android {
     namespace = "com.example.iptvpreview"
@@ -21,8 +22,14 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
 }
+kapt {
+    arguments { arg("room.schemaLocation", "$projectDir/schemas") }
+}
 dependencies {
     implementation("androidx.room:room-common:2.6.1")
+    implementation("androidx.room:room-runtime:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")
+    kapt("androidx.room:room-compiler:2.6.1")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
     androidTestImplementation("androidx.test:runner:1.5.2")
     implementation("org.videolan.android:libvlc-all:3.6.4")

@@ -42,6 +42,7 @@ See GitHub Releases for the current debug APK and source archive. Build, JVM tes
 
 Live streaming, PiP, and the latest remote-focus interactions have not been comprehensively verified interactively. MEmu UI inspection returned no accessible root. The APK is a debug build, not a store-signed production release.
 
-Coil 2.6.0 is included but channel logos still use placeholders. The guide shows current/upcoming programmes rather than a complete schedule. Movies/series libraries and automatic Home-to-PiP are not implemented. Room annotations are present, while persistence uses DataStore.
+Coil 2.6.0 is included but channel logos still use placeholders. The guide shows current/upcoming programmes rather than a complete schedule. Movies/series libraries and automatic Home-to-PiP are not implemented. Room provides a channel entity, playlist-ordered queries, name/group search capped at 500 results, replacement inserts, and an exported version 1 schema. This database layer is available for integration; active repository persistence still uses DataStore.
 
 Supply your own source in Settings; the requested public M3U example is https://iptv-org.github.io/iptv/index.m3u. Source availability depends on the provider.
+
