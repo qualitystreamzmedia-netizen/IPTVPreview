@@ -86,3 +86,5 @@ DAO updates: getAllChannels sorts by group COLLATE NOCASE then source index; get
 
 
 Schema v5 adds vod_items with the supplied MOVIE/SERIES model, artwork URLs, duration, release year, rating, plot and optional season/episode numbers. Migration 4-to-5 adds the table without modifying existing channels or programmes. This is storage infrastructure; VOD imports and browsing screens are not connected yet.
+
+Repository importVodContent(playlist) now fetches Xtream movies and resolves series into playable episodes. With no movie_api/series_api flags it imports both; explicit flags select content types. Requested types are replaced together in one transaction after successful fetching, preserving other playlists and unrequested types. Errors propagate to the caller. This repository entry point is not yet wired to Settings or VOD browsing screens.

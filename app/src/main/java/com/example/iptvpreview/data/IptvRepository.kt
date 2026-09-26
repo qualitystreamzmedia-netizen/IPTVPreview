@@ -49,6 +49,10 @@ class IptvRepository(
     private val dao: ChannelDao = IptvDatabase.getInstance(context).channelDao(),
     private val database: IptvDatabase = IptvDatabase.getInstance(context)
 ) {
+    private val vodImportLock = Mutex()
+    suspend fun importVodContent(playlist: Playlist) = vodImportLock.withLock {
+        importXtreamVod(playlist, client, database)
+    }
     constructor(context: Context, dao: ChannelDao) : this(context = context, dao = dao,
         client = OkHttpClient.Builder().callTimeout(45, TimeUnit.SECONDS).build())
 

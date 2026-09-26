@@ -8,6 +8,9 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface VodDao {
+    @Query("DELETE FROM vod_items WHERE playlistId = :playlistId AND type = :type")
+    suspend fun deleteByPlaylistAndType(playlistId: String, type: VodType)
+
     @Query("SELECT * FROM vod_items WHERE type = :type ORDER BY name ASC, id ASC")
     fun getVodsByType(type: String): Flow<List<VodItemEntity>>
 
