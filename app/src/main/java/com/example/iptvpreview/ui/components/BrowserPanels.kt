@@ -104,19 +104,28 @@ fun CategorySidebar(categories: List<Category>, selectedCategory: String?, onSel
 
 @Composable
 fun ChannelListPanel(
-    channels: List<Channel>, selectedChannel: Channel?, onSelectChannel: (Channel) -> Unit,
-    listState: LazyListState, isFocused: Boolean, modifier: Modifier = Modifier,
+    channels: List<Channel>, selectedChannel: Channel? = null, onSelectChannel: (Channel) -> Unit,
+    listState: LazyListState = rememberLazyListState(), isFocused: Boolean = true, modifier: Modifier = Modifier,
     focusRequester: FocusRequester = remember { FocusRequester() },
-    epg: Map<String, EpgProgram> = emptyMap(), focusedId: String? = null,
+    epg: Map<String, EpgProgram> = emptyMap(), focusedIndex: Int = -1,
     onToggleFav: (String) -> Unit = {}, locked: (Channel) -> Boolean = { false }
 ) {
     LaunchedEffect(isFocused, focusRequester) {
         if (isFocused) focusRequester.requestFocus()
     }
+    LaunchedEffect(focusedIndex, channels.size, isFocused, listState) {
+        if (isFocused && focusedIndex in channels.indices) {
+            val layout = listState.layoutInfo
+            val item = layout.visibleItemsInfo.firstOrNull { it.index == focusedIndex }
+            val fullyVisible = item != null && item.offset >= layout.viewportStartOffset &&
+                item.offset + item.size <= layout.viewportEndOffset
+            if (!fullyVisible) listState.animateScrollToItem(focusedIndex)
+        }
+    }
     Surface(color = MaterialTheme.colorScheme.background, modifier = modifier.fillMaxHeight()) {
         ChannelBrowserPanel(channels, selectedChannel, onSelectChannel,
             modifier = Modifier.fillMaxSize().focusRequester(focusRequester).focusable(),
-            listState = listState, epg = epg, focusedId = focusedId,
+            listState = listState, epg = epg, focusedId = if (isFocused) channels.getOrNull(focusedIndex)?.id else null,
             onToggleFav = onToggleFav, locked = locked)
     }
 }

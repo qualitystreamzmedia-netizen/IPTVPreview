@@ -366,16 +366,6 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
         listNavigation.select(0, visibleChannels.size)
         if (visibleChannels.isNotEmpty()) channelListScroll.scrollToItem(0)
     }
-    LaunchedEffect(viewModel.focusedChannelIndex, visibleChannels.size, channelListFocused) {
-        if (channelListFocused && visibleChannels.isNotEmpty()) {
-            val target = viewModel.focusedChannelIndex.coerceIn(visibleChannels.indices)
-            val layout = channelListScroll.layoutInfo
-            val item = layout.visibleItemsInfo.firstOrNull { it.index == target }
-            val fullyVisible = item != null && item.offset >= layout.viewportStartOffset &&
-                item.offset + item.size <= layout.viewportEndOffset
-            if (!fullyVisible) channelListScroll.animateScrollToItem(target)
-        }
-    }
     val remoteHandler by rememberUpdatedState<(MainActivity.RemoteAction) -> Unit> { action ->
         if (pendingChannel == null && !inPip) {
         when (action) {
@@ -569,7 +559,7 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
                         listNavigation.select(visibleChannels.indexOfFirst { it.id == channel.id }, visibleChannels.size)
                         attemptPlayChannel(channel)
                     }, listState = channelListScroll, epg = epgMap,
-                    focusedId = if (channelListFocused) visibleChannels.getOrNull(viewModel.focusedChannelIndex)?.id else null,
+                    focusedIndex = viewModel.focusedChannelIndex,
                     onToggleFav = viewModel::toggleFavorite, locked = viewModel::isChannelLocked,
                     modifier = Modifier.fillMaxWidth().weight(1f)
                     .border(1.dp, if (currentFocus == FocusArea.CHANNEL_LIST) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else Color.Transparent)
