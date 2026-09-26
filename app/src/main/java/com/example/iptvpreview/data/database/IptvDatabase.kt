@@ -11,6 +11,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 abstract class IptvDatabase : RoomDatabase() {
     abstract fun channelDao(): ChannelDao
     abstract fun epgDao(): EpgDao
+    abstract fun vodDao(): com.example.iptvpreview.data.local.VodDao
 
     companion object {
         val MIGRATION_4_5 = object : Migration(4, 5) {
