@@ -100,6 +100,24 @@ class PlayerViewModel(private val repo: IptvRepository) : ViewModel() {
     val requestedChannelId = requestedChannelState.asStateFlow()
     val movies = repo.movies.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val series = repo.series.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    private val vodLoadingState = MutableStateFlow(false)
+    val vodLoading = vodLoadingState.asStateFlow()
+    private val vodErrorState = MutableStateFlow<String?>(null)
+    val vodError = vodErrorState.asStateFlow()
+    fun refreshVod() {
+        if (vodLoadingState.value) return
+        val sources = repo.playlists.value.filter { it.isActive && it.type == PlaylistType.XTREAM &&
+            (selectedPlaylistId.value == null || it.id == selectedPlaylistId.value) }
+        if (sources.isEmpty()) { vodErrorState.value = "Add or select an active Xtream playlist in Settings."; return }
+        vodLoadingState.value = true
+        vodErrorState.value = null
+        viewModelScope.launch {
+            try { sources.forEach { repo.importVodContent(it) } }
+            catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (_: Exception) { vodErrorState.value = "VOD import failed. Check your provider settings and try again." }
+            finally { vodLoadingState.value = false }
+        }
+    }
     private val requestedVodState = MutableStateFlow<com.example.iptvpreview.data.Channel?>(null)
     val requestedVod = requestedVodState.asStateFlow()
     fun selectVodItem(item: com.example.iptvpreview.data.local.VodItemEntity) {

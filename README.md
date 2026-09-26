@@ -42,7 +42,7 @@ See GitHub Releases for the current debug APK and source archive. Build, JVM tes
 
 Live streaming, PiP, and the latest remote-focus interactions have not been comprehensively verified interactively. MEmu UI inspection returned no accessible root. The APK is a debug build, not a store-signed production release.
 
-Coil 2.6.0 is included but channel logos still use placeholders. The guide shows current/upcoming programmes rather than a complete schedule. Movies/series libraries and automatic Home-to-PiP are not implemented. Room provides a channel entity, playlist-ordered queries, name/group search capped at 500 results, replacement inserts, and an exported version 1 schema. Room is the active channel cache; DataStore retains playlist configuration and user settings.
+Coil 2.6.0 is included but channel logos still use placeholders. The guide shows current/upcoming programmes rather than a complete schedule. Movies/series use the VOD tabs described below; automatic Home-to-PiP is not implemented. Room provides a channel entity, playlist-ordered queries, name/group search capped at 500 results, replacement inserts, and an exported version 1 schema. Room is the active channel cache; DataStore retains playlist configuration and user settings.
 
 Supply your own source in Settings; the requested public M3U example is https://iptv-org.github.io/iptv/index.m3u. Source availability depends on the provider.
 
@@ -85,6 +85,8 @@ Schema v4 adds separate channel playlistId and group indexes, preserving existin
 DAO updates: getAllChannels sorts by group COLLATE NOCASE then source index; getFavorites sorts by name. deleteByPlaylist is available. EpgDao supports replacement inserts and cleanup of rows ending strictly before the supplied cutoff; current lookup retains exclusive end times and deterministic overlap handling. data.local DAO aliases are provided.
 
 
-Schema v5 adds vod_items with the supplied MOVIE/SERIES model, artwork URLs, duration, release year, rating, plot and optional season/episode numbers. Migration 4-to-5 adds the table without modifying existing channels or programmes. This is storage infrastructure; VOD imports and browsing screens are not connected yet.
+Schema v5 adds vod_items with the supplied MOVIE/SERIES model, artwork URLs, duration, release year, rating, plot and optional season/episode numbers. Migration 4-to-5 adds the table without modifying existing channels or programmes. The VOD tabs described below use this storage.
 
-Repository importVodContent(playlist) now fetches Xtream movies and resolves series into playable episodes. With no movie_api/series_api flags it imports both; explicit flags select content types. Requested types are replaced together in one transaction after successful fetching, preserving other playlists and unrequested types. Errors propagate to the caller. This repository entry point is not yet wired to Settings or VOD browsing screens.
+Repository importVodContent(playlist) now fetches Xtream movies and resolves series into playable episodes. With no movie_api/series_api flags it imports both; explicit flags select content types. Requested types are replaced together in one transaction after successful fetching, preserving other playlists and unrequested types. Errors propagate to the caller. The Refresh VOD button on the Movies/Series tabs calls this entry point.
+
+The player now includes Live, Movies and Series bottom tabs. Movies/Series show poster grids beside the existing VLC player. Refresh VOD imports active Xtream sources within the selected playlist scope and reports loading/errors. Playlist selection and search filter the grid; choosing a title invokes the VOD playback handler. Tabs hide during fullscreen/PiP. Series currently lists individual episodes. Live-channel remote selections are disabled while browsing VOD.

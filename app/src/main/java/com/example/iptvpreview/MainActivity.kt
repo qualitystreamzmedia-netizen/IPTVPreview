@@ -31,6 +31,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.Subscriptions
 import androidx.compose.material.icons.filled.Search
 import androidx.activity.viewModels
 import androidx.lifecycle.ViewModel
@@ -98,6 +100,8 @@ import com.example.iptvpreview.ui.screens.IptvRoot
 import com.example.iptvpreview.ui.theme.getScaledTypography
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+
+enum class ContentTab { LIVE, MOVIES, SERIES }
 
 class MainActivity : ComponentActivity() {
     private val navController get() = playerViewModel.navController
@@ -209,6 +213,11 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
     
     var selectedChannel by remember { mutableStateOf<Channel?>(null) }
     var showSettingsDialog by remember { mutableStateOf(false) }
+    var selectedTab by rememberSaveable { mutableStateOf(ContentTab.LIVE) }
+    val movies by viewModel.movies.collectAsState()
+    val series by viewModel.series.collectAsState()
+    val vodLoading by viewModel.vodLoading.collectAsState()
+    val vodError by viewModel.vodError.collectAsState()
     var isSearchActive by rememberSaveable { mutableStateOf(false) }
     var showManagerDialog by remember { mutableStateOf(false) }
     val filterByFavorites by viewModel.showFavoritesOnly.collectAsState()
@@ -277,7 +286,7 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
     val requestPaneFocus: (FocusArea) -> Unit = { area ->
         if (!expandedPlayer || area == FocusArea.PLAYER_CONTROLS) {
             navController.setFocus(area)
-            when (area) {
+            when (if (selectedTab != ContentTab.LIVE && area != FocusArea.PLAYER_CONTROLS) FocusArea.CHANNEL_LIST else area) {
                 FocusArea.NAV_RAIL -> railFocus
                 FocusArea.CATEGORY_LIST -> categoryFocus
                 FocusArea.CHANNEL_LIST -> channelListFocus
@@ -288,7 +297,7 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
     var channelListFocused by remember { mutableStateOf(false) }
     LaunchedEffect(currentFocus) {
         if (!showSettingsDialog && !showManagerDialog && !showProgramInfo && pendingChannel == null) {
-            requestPaneFocus(currentFocus)
+            if (selectedTab == ContentTab.LIVE) requestPaneFocus(currentFocus)
         }
     }
     var remotePlayback by remember { mutableStateOf(false) }
@@ -352,7 +361,7 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
         }
     }
     val handleSelection by rememberUpdatedState<(PlayerViewModel.FocusSelection) -> Unit> { selection ->
-        if (!showSettingsDialog && !showManagerDialog && !showProgramInfo && pendingChannel == null && !inPip) {
+        if (selectedTab == ContentTab.LIVE && !showSettingsDialog && !showManagerDialog && !showProgramInfo && pendingChannel == null && !inPip) {
             when (selection.pane) {
                 PlayerViewModel.Pane.CHANNEL -> activateChannel(selection.index)
                 PlayerViewModel.Pane.CATEGORY -> {
@@ -370,7 +379,7 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
         }
     }
     val listNavigation = rememberRemoteListState(visibleChannels.size, remoteActions,
-        enabled = channelListFocused && !showSettingsDialog && !showProgramInfo,
+        enabled = selectedTab == ContentTab.LIVE && channelListFocused && !showSettingsDialog && !showProgramInfo,
         onActivate = activateChannel, navigationState = viewModel.channelFocus)
     LaunchedEffect(searchQuery, selectedCategory, filterByFavorites, selectedPlaylistId, filterRecent) {
         listNavigation.select(0, visibleChannels.size)
@@ -396,7 +405,7 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
             }
             MainActivity.RemoteAction.LEFT, MainActivity.RemoteAction.RIGHT,
             MainActivity.RemoteAction.NEXT, MainActivity.RemoteAction.PREVIOUS -> {
-                if (!showSettingsDialog && !showProgramInfo && !showManagerDialog) {
+                if (selectedTab == ContentTab.LIVE && !showSettingsDialog && !showProgramInfo && !showManagerDialog) {
                     val index = visibleChannels.indexOfFirst { it.id == selectedChannel?.id }
                     val target = if (index < 0) 0 else index + if (action == MainActivity.RemoteAction.NEXT || action == MainActivity.RemoteAction.RIGHT) 1 else -1
                     if (target in visibleChannels.indices) {
@@ -448,6 +457,19 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
     val density = LocalDensity.current
     Scaffold(
         snackbarHost = { if (!inPip) SnackbarHost(snackbarHostState) },
+        bottomBar = {
+            if (!expandedPlayer) NavigationBar {
+                ContentTab.entries.forEach { tab ->
+                    NavigationBarItem(selected = selectedTab == tab, onClick = { selectedTab = tab },
+                        icon = { Icon(when (tab) {
+                            ContentTab.LIVE -> Icons.Default.LiveTv
+                            ContentTab.MOVIES -> Icons.Default.Movie
+                            ContentTab.SERIES -> Icons.Default.Subscriptions
+                        }, contentDescription = null) },
+                        label = { Text(when (tab) { ContentTab.LIVE -> "Live"; ContentTab.MOVIES -> "Movies"; ContentTab.SERIES -> "Series" }) })
+                }
+            }
+        },
         topBar = {
             Column(if (expandedPlayer) Modifier.height(0.dp) else Modifier) {
             TopAppBar(
@@ -501,7 +523,7 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
-            if (searchQuery.isNotBlank()) Text("Results: ${visibleChannels.size}",
+            if (searchQuery.isNotBlank() && selectedTab == ContentTab.LIVE) Text("Results: ${visibleChannels.size}",
                 style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 16.dp))
             }
         }
@@ -527,6 +549,7 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
             }
         }
         Row(modifier = Modifier.fillMaxSize()) {
+            if (selectedTab == ContentTab.LIVE) {
             LeftNavRail(selectedItem = when {
                 showProgramInfo -> NavItem.GUIDE
                 filterRecent -> NavItem.RECENT
@@ -608,6 +631,22 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
                     })
             }
 
+            } else {
+                val activeIds = playlists.filter { it.isActive }.map { it.id }.toSet()
+                val titles = (if (selectedTab == ContentTab.MOVIES) movies else series).filter {
+                    it.playlistId in activeIds && (selectedPlaylistId == null || it.playlistId == selectedPlaylistId) &&
+                        (searchQuery.isBlank() || it.name.contains(searchQuery.trim(), ignoreCase = true))
+                }
+                Column(Modifier.width(if (expandedPlayer) 0.dp else browserWidth.dp).fillMaxHeight()
+                    .focusRequester(channelListFocus).focusGroup()) {
+                    Button(onClick = viewModel::refreshVod, enabled = !vodLoading,
+                        modifier = Modifier.padding(12.dp)) { Text(if (vodLoading) "Importing…" else "Refresh VOD") }
+                    if (vodLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
+                    vodError?.let { Text(it, modifier = Modifier.padding(12.dp), color = MaterialTheme.colorScheme.error) }
+                    com.example.iptvpreview.ui.components.VodGridView(titles, viewModel::selectVodItem,
+                        Modifier.fillMaxWidth().weight(1f))
+                }
+            }
             // RIGHT: PLAYER
             ResizableDivider(enabled = !expandedPlayer,
                 onResize = resizeBrowser,
