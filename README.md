@@ -48,3 +48,11 @@ Supply your own source in Settings; the requested public M3U example is https://
 
 
 The repository exposes getFilteredChannels(playlistId, query) for reactive Room reads. Search respects the playlist scope before the 500-result cap; blank queries return the selected playlist or all rows. The current entity stores the basic channel fields; logo, EPG ID and hidden flags are not yet persisted in Room. The existing importer/browser have not switched to this API.
+
+## Background M3U import
+
+Call `ImportPlaylistWorker.enqueue(context, url, playlistId)` to schedule a network-constrained unique import and observe the returned WorkRequest UUID with WorkManager. Supply the existing playlist ID when updating a source. Progress data contains `progress` (-1 for unknown download size) and `rows`. Download progresses to 70%; parsing reports batch counts; 100% means committed.
+
+The worker streams a maximum 100 MB download to a temporary file, then parses line by line and inserts batches of 1,000 rows in one outer Room transaction. Invalid/empty input and cancellation roll back the replacement. Room favorites survive refresh; other playlists remain untouched. Transient HTTP/network failures retry at most three attempts with exponential backoff. Temporary files are removed on completion. A cancelable foreground notification and dataSync service declaration are included.
+
+This entry point imports M3U into the basic Room channel table. The existing playlist-settings UI still uses its original importer; it does not yet enqueue this worker or read this cache. Xtream imports, logo/EPG metadata persistence, and notification permission UX are not migrated here. Android 13+ users may need to allow notifications in system settings to see the foreground notification in the drawer.

@@ -8,6 +8,12 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ChannelDao {
+    @Query("DELETE FROM channels WHERE playlistId = :playlistId")
+    suspend fun deletePlaylistChannels(playlistId: String)
+
+    @Query("SELECT id FROM channels WHERE playlistId = :playlistId AND isFavorite = 1")
+    suspend fun favoriteIds(playlistId: String): List<String>
+
     @Query("SELECT * FROM channels ORDER BY playlistId ASC, orderIndex ASC, id ASC")
     fun getAllChannels(): Flow<List<ChannelEntity>>
 

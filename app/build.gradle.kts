@@ -26,6 +26,7 @@ kapt {
     arguments { arg("room.schemaLocation", "$projectDir/schemas") }
 }
 dependencies {
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
     implementation("androidx.room:room-common:2.6.1")
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
