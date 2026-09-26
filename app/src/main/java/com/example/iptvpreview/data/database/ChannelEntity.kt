@@ -14,3 +14,8 @@ data class ChannelEntity(
     val orderIndex: Int,
     val isFavorite: Boolean = false
 )
+
+fun ChannelEntity.toDomainModel() = com.example.iptvpreview.data.model.Channel(
+    id = id, playlistId = playlistId, name = name, url = url, group = group,
+    orderIndex = orderIndex, isFavorite = isFavorite
+)

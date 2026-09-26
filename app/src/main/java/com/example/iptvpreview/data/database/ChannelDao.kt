@@ -8,11 +8,14 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ChannelDao {
+    @Query("SELECT * FROM channels ORDER BY playlistId ASC, orderIndex ASC, id ASC")
+    fun getAllChannels(): Flow<List<ChannelEntity>>
+
     @Query("SELECT * FROM channels WHERE playlistId = :pid ORDER BY orderIndex ASC, id ASC")
     fun getChannelsByPlaylist(pid: String): Flow<List<ChannelEntity>>
 
-    @Query("SELECT * FROM channels WHERE name LIKE '%' || :query || '%' OR `group` LIKE '%' || :query || '%' ORDER BY playlistId ASC, orderIndex ASC, id ASC LIMIT 500")
-    fun searchChannels(query: String): Flow<List<ChannelEntity>>
+    @Query("SELECT * FROM channels WHERE (:playlistId IS NULL OR playlistId = :playlistId) AND (name LIKE '%' || :query || '%' OR `group` LIKE '%' || :query || '%') ORDER BY playlistId ASC, orderIndex ASC, id ASC LIMIT 500")
+    fun searchChannels(query: String, playlistId: String? = null): Flow<List<ChannelEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(channels: List<ChannelEntity>)

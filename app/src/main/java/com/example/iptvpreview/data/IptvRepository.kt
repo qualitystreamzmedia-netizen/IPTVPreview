@@ -1,6 +1,10 @@
 package com.example.iptvpreview.data
 
 import android.content.Context
+import com.example.iptvpreview.data.database.ChannelDao
+import com.example.iptvpreview.data.database.IptvDatabase
+import com.example.iptvpreview.data.database.toDomainModel
+import kotlinx.coroutines.flow.Flow
 import com.example.iptvpreview.data.model.EpgProgram
 import com.example.iptvpreview.data.model.Playlist
 import com.example.iptvpreview.data.model.Category
@@ -39,8 +43,22 @@ private val Context.playlistStore by preferencesDataStore("playlists")
 class IptvRepository(
     context: Context,
     private val client: OkHttpClient = OkHttpClient.Builder().callTimeout(45, TimeUnit.SECONDS).build(),
-    private val store: androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences> = context.applicationContext.playlistStore
+    private val store: androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences> = context.applicationContext.playlistStore,
+    private val dao: ChannelDao = IptvDatabase.getInstance(context).channelDao()
 ) {
+    constructor(context: Context, dao: ChannelDao) : this(context = context, dao = dao,
+        client = OkHttpClient.Builder().callTimeout(45, TimeUnit.SECONDS).build())
+
+    /** Observes persisted Room rows; playlist imports are still managed separately. */
+    fun getFilteredChannels(playlistId: String?, query: String): Flow<List<Channel>> {
+        val rows = when {
+            query.isNotBlank() -> dao.searchChannels(query.trim(), playlistId)
+            playlistId != null -> dao.getChannelsByPlaylist(playlistId)
+            else -> dao.getAllChannels()
+        }
+        return rows.map { entities -> entities.map { it.toDomainModel() } }
+    }
+
     val security = ParentalSecurity(store)
     private fun customOrderKey(playlistId: String) = stringPreferencesKey("custom_order_$playlistId")
     private fun decodeCategoryOrder(json: String?): List<String>? = try {

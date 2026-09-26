@@ -46,3 +46,5 @@ Coil 2.6.0 is included but channel logos still use placeholders. The guide shows
 
 Supply your own source in Settings; the requested public M3U example is https://iptv-org.github.io/iptv/index.m3u. Source availability depends on the provider.
 
+
+The repository exposes getFilteredChannels(playlistId, query) for reactive Room reads. Search respects the playlist scope before the 500-result cap; blank queries return the selected playlist or all rows. The current entity stores the basic channel fields; logo, EPG ID and hidden flags are not yet persisted in Room. The existing importer/browser have not switched to this API.
