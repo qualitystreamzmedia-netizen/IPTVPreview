@@ -15,13 +15,16 @@ class ChannelDaoAndroidTest {
         val db = Room.inMemoryDatabaseBuilder(context, IptvDatabase::class.java).build()
         try {
             val dao = db.channelDao()
-            val news = ChannelEntity("a", "p", "World News", "https://example.org/a", "International", 2)
+            val news = ChannelEntity("a", "p", "World News", "https://example.org/a", "International", 2,
+                logoUrl = "https://example.org/logo.png", epgId = "news")
             val sports = ChannelEntity("b", "p", "Match", "https://example.org/b", "Sports", 0)
             dao.insertAll(listOf(news, sports, news.copy(id = "c", playlistId = "q")))
             assertEquals(listOf("b", "a"), dao.getChannelsByPlaylist("p").first().map { it.id })
             assertEquals(listOf("b"), dao.searchChannels("sports").first().map { it.id })
             assertEquals(2, dao.searchChannels("NEWS").first().size)
             val repo = com.example.iptvpreview.data.IptvRepository(context, dao)
+            assertEquals("news", repo.getFilteredChannels("p", "NEWS").first().single().epgId)
+            assertEquals(news.logoUrl, repo.getFilteredChannels("p", "NEWS").first().single().logoUrl)
             assertEquals(listOf("b", "a", "c"), repo.getFilteredChannels(null, " ").first().map { it.id })
             assertEquals(listOf("b", "a"), repo.getFilteredChannels("p", "").first().map { it.id })
             assertEquals(listOf("a"), repo.getFilteredChannels("p", " NEWS ").first().map { it.id })

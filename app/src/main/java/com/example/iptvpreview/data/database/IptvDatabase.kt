@@ -7,12 +7,25 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [ChannelEntity::class, EpgProgramEntity::class], version = 2, exportSchema = true)
+@Database(entities = [ChannelEntity::class, EpgProgramEntity::class], version = 3, exportSchema = true)
 abstract class IptvDatabase : RoomDatabase() {
     abstract fun channelDao(): ChannelDao
     abstract fun epgDao(): EpgDao
 
     companion object {
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE channels ADD COLUMN logoUrl TEXT")
+                db.execSQL("ALTER TABLE channels ADD COLUMN epgId TEXT")
+                db.execSQL("CREATE INDEX index_channels_playlistId_group ON channels(playlistId, `group`)")
+                db.execSQL("CREATE TABLE epg_programs_new (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, channel_id TEXT NOT NULL, title TEXT NOT NULL, start_time INTEGER NOT NULL, end_time INTEGER NOT NULL, description TEXT)")
+                // Preserve legacy rows and IDs; unknown required values become empty/zero.
+                db.execSQL("INSERT INTO epg_programs_new SELECT id, COALESCE(channel_id,''), COALESCE(title,''), COALESCE(start_time,0), COALESCE(end_time,0), description FROM epg_programs")
+                db.execSQL("DROP TABLE epg_programs")
+                db.execSQL("ALTER TABLE epg_programs_new RENAME TO epg_programs")
+                db.execSQL("CREATE INDEX idx_epg_channel_time ON epg_programs(channel_id, start_time)")
+            }
+        }
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("CREATE TABLE IF NOT EXISTS epg_programs (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, channel_id TEXT, title TEXT, start_time INTEGER, end_time INTEGER, description TEXT)")
@@ -23,7 +36,7 @@ abstract class IptvDatabase : RoomDatabase() {
 
         fun getInstance(context: Context): IptvDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, IptvDatabase::class.java, "iptv_channels.db")
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build().also { instance = it }
         }
     }

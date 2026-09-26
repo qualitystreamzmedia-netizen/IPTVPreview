@@ -135,7 +135,7 @@ internal suspend fun importM3uFile(file: File, url: String, playlistId: String, 
                     val channel = parseM3u("#EXTM3U\n$metadata\n$line", url, playlistId).firstOrNull()
                     metadata = ""
                     if (channel != null) {
-                        batch.add(ChannelEntity(channel.id, playlistId, channel.name, channel.url, channel.group, count++, channel.id in favorites))
+                        batch.add(ChannelEntity(channel.id, playlistId, channel.name, channel.url, channel.group, count++, channel.id in favorites, channel.logoUrl, channel.epgId))
                         if (batch.size == 1000) { dao.insertAll(batch); batch.clear(); onBatch(count) }
                     }
                 }

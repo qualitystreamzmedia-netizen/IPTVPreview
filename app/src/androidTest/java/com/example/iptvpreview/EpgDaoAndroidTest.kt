@@ -13,7 +13,7 @@ class EpgDaoAndroidTest {
         val db = Room.inMemoryDatabaseBuilder(context, IptvDatabase::class.java).build()
         try {
             val sql = db.openHelper.writableDatabase
-            sql.execSQL("INSERT INTO epg_programs(channel_id,title,start_time,end_time,description) VALUES ('a','First',100,200,'Details'),('a','Second',200,300,NULL),('b','Other',100,400,NULL),('a',NULL,100,400,NULL)")
+            sql.execSQL("INSERT INTO epg_programs(channel_id,title,start_time,end_time,description) VALUES ('a','First',100,200,'Details'),('a','Second',200,300,NULL),('b','Other',100,400,NULL),('a','',100,400,NULL)")
             val dao = db.epgDao()
             assertNull(dao.getCurrentProgram("a", 99))
             assertEquals("Details", dao.getCurrentProgram("a", 100)?.description)

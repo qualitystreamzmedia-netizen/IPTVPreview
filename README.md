@@ -47,7 +47,7 @@ Coil 2.6.0 is included but channel logos still use placeholders. The guide shows
 Supply your own source in Settings; the requested public M3U example is https://iptv-org.github.io/iptv/index.m3u. Source availability depends on the provider.
 
 
-The repository exposes getFilteredChannels(playlistId, query) for reactive Room reads. Search respects the playlist scope before the 500-result cap; blank queries return the selected playlist or all rows. The current entity stores the basic channel fields; logo, EPG ID and hidden flags are not yet persisted in Room. The existing importer/browser have not switched to this API.
+The repository exposes getFilteredChannels(playlistId, query) for reactive Room reads. Search respects the playlist scope before the 500-result cap; blank queries return the selected playlist or all rows. Room stores channel logos and EPG IDs; hidden flags remain in the existing repository flow. The existing importer/browser have not switched to this API.
 
 ## Background M3U import
 
@@ -55,7 +55,7 @@ Call `ImportPlaylistWorker.enqueue(context, url, playlistId)` to schedule a netw
 
 The worker streams a maximum 100 MB download to a temporary file, then parses line by line and inserts batches of 1,000 rows in one outer Room transaction. Invalid/empty input and cancellation roll back the replacement. Room favorites survive refresh; other playlists remain untouched. Transient HTTP/network failures retry at most three attempts with exponential backoff. Temporary files are removed on completion. A cancelable foreground notification and dataSync service declaration are included.
 
-This entry point imports M3U into the basic Room channel table. The existing playlist-settings UI still uses its original importer; it does not yet enqueue this worker or read this cache. Xtream imports, logo/EPG metadata persistence, and notification permission UX are not migrated here. Android 13+ users may need to allow notifications in system settings to see the foreground notification in the drawer.
+This entry point imports M3U into the basic Room channel table. The existing playlist-settings UI still uses its original importer; it does not yet enqueue this worker or read this cache. Xtream imports and notification permission UX are not migrated here. Android 13+ users may need to allow notifications in system settings to see the foreground notification in the drawer.
 
 Channel navigation now uses ViewModel-owned observable focus state. Category focus reports the actual focused row (zero is All Channels), and indices are clamped as lists shrink. Left/Right retain native pane navigation; the event stream is not processed twice.
 
@@ -69,3 +69,6 @@ VLC now retries playback errors up to three times with 1/2/4-second delays. Play
 The dashboard toolbar now uses IPTV Pro branding, a rounded playlist selector, a collapsible search field and a Dashboard action. Closing search clears the repository query. Search bypasses the category filter while retaining playlist and Favorites/Recent scope. Existing playback, guide, parental controls and resizable panes remain connected; placeholder VLC and Recent implementations from the mockup are not used.
 
 Room compilation uses KSP 1.9.22-1.0.17 with Kotlin 1.9.22. Runtime dependencies remain Room 2.6.1, WorkManager 2.9.0 and coroutines-android 1.8.0. Schema export remains enabled.
+
+Schema v3 adds channel logoUrl/epgId and the playlist/group index, retaining the source-order index. Worker imports and domain mapping preserve these fields. EPG entities expose dbId and non-null required values while retaining existing SQL column names. Migration preserves legacy EPG IDs and rows, replacing null required values with empty strings/zero; empty titles are excluded from current-program lookup. data.local entity aliases are available for the supplied imports.
+

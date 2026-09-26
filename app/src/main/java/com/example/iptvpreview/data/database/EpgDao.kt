@@ -12,7 +12,7 @@ interface EpgDao {
         SELECT channel_id AS channelId, title, description,
                start_time AS startTime, end_time AS endTime, NULL AS category
         FROM epg_programs
-        WHERE channel_id = :chId AND title IS NOT NULL
+        WHERE channel_id = :chId AND title != ''
           AND start_time <= :now AND end_time > :now
         ORDER BY start_time DESC, id DESC
         LIMIT 1
