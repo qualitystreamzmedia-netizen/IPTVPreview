@@ -26,11 +26,11 @@ fun PlaylistSelector(
     Box(modifier) {
         OutlinedButton(
             onClick = { expanded = true }, enabled = enabled,
-            shape = MaterialTheme.shapes.small,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
             colors = ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
         ) {
-            Icon(Icons.Default.PlaylistPlay, null, Modifier.size(18.dp))
+            Icon(Icons.Default.ListAlt, null, Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(currentName, style = MaterialTheme.typography.labelMedium,
                 maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))

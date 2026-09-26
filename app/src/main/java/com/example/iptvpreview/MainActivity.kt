@@ -31,6 +31,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.activity.viewModels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -208,6 +209,7 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
     
     var selectedChannel by remember { mutableStateOf<Channel?>(null) }
     var showSettingsDialog by remember { mutableStateOf(false) }
+    var isSearchActive by rememberSaveable { mutableStateOf(false) }
     var showManagerDialog by remember { mutableStateOf(false) }
     var filterByFavorites by remember { mutableStateOf(false) }
     var playbackError by remember { mutableStateOf<String?>(null) }
@@ -232,10 +234,10 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
             playbackError = null
         }
     }
-    val visibleChannels = remember(displayedChannels, filterByFavorites, selectedCategory, selectedPlaylistId, filterRecent, recentIds) {
+    val visibleChannels = remember(displayedChannels, filterByFavorites, selectedCategory, selectedPlaylistId, filterRecent, recentIds, searchQuery) {
         val recentOrder = recentIds.withIndex().associate { it.value to it.index }
         val filtered = displayedChannels.filter { !it.isHidden && (!filterByFavorites || it.isFavorite) &&
-            (selectedCategory == null || it.group == selectedCategory) &&
+            (searchQuery.isNotBlank() || selectedCategory == null || it.group == selectedCategory) &&
             (!filterRecent || it.id in recentOrder) }
         if (filterRecent) filtered.sortedBy { recentOrder[it.id] } else filtered
     }
@@ -243,8 +245,8 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
     LaunchedEffect(sidebarCategories) {
         viewModel.setFocusedCategory(viewModel.focusedCategoryIndex, sidebarCategories.count { !it.isHidden })
     }
-    LaunchedEffect(categories) {
-        if (selectedCategory != null && categories.none { !it.isHidden && it.name == selectedCategory }) selectedCategory = null
+    LaunchedEffect(categories, searchQuery) {
+        if (searchQuery.isBlank() && selectedCategory != null && categories.none { !it.isHidden && it.name == selectedCategory }) selectedCategory = null
     }
 
     val snackbarHostState = remember { SnackbarHostState() }
@@ -428,9 +430,15 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.LiveTv, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.width(8.dp))
-                        Text("Browse", fontWeight = FontWeight.Bold, maxLines = 1)
+                        Text("IPTV Pro", fontWeight = FontWeight.Bold, maxLines = 1)
                         Spacer(Modifier.width(16.dp))
-                        PlaylistSelector(
+                        if (isSearchActive) {
+                            val searchFocus = remember { FocusRequester() }
+                            LaunchedEffect(Unit) { searchFocus.requestFocus() }
+                            IPTVSearchBar(initialQuery = searchQuery, onQueryChange = viewModel::updateSearch,
+                                modifier = Modifier.weight(1f).focusRequester(searchFocus),
+                                onSubmit = { channelListFocus.requestFocus() })
+                        } else PlaylistSelector(
                             playlists = playlists,
                             selectedId = selectedPlaylistId,
                             onSelect = { viewModel.selectPlaylist(it); selectedCategory = null },
@@ -440,6 +448,14 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
                     }
                 },
                 actions = {
+                    IconButton(onClick = {
+                        isSearchActive = !isSearchActive
+                        if (!isSearchActive) viewModel.clearSearch()
+                    }) {
+                        Icon(if (isSearchActive) Icons.Default.Close else Icons.Default.Search,
+                            if (isSearchActive) "Close search" else "Search")
+                    }
+                    if (onNavigateToDashboard != null) TextButton(onClick = onNavigateToDashboard) { Text("Dashboard") }
                     IconButton(onClick = onParentalControls) { Icon(Icons.Default.Lock, "Parental Controls") }
                     TextButton(onClick = { showManagerDialog = true }) { Text("Manage") }
                     IconButton(onClick = { filterByFavorites = !filterByFavorites }) {
@@ -455,9 +471,6 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
-            IPTVSearchBar(initialQuery = searchQuery, onQueryChange = viewModel::updateSearch,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                onSubmit = { channelListFocus.requestFocus() })
             if (searchQuery.isNotBlank()) Text("Results: ${visibleChannels.size}",
                 style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 16.dp))
             }

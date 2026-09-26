@@ -65,3 +65,5 @@ Room schema v2 adds epg_programs and idx_epg_channel_time(channel_id, start_time
 EpgDao.getCurrentProgram(channelId, now) maps Room columns to the existing EpgProgram domain model. It uses an exclusive end time, prefers the latest-starting overlap, breaks ties by ID, and returns null when no valid current programme exists.
 
 VLC now retries playback errors up to three times with 1/2/4-second delays. Playing resets the counter; pause, stop, release and channel changes cancel pending retries. URL loading is owned by the controller, and generation tokens discard queued events from older attempts. Retry policy unit tests pass; live-network recovery is not yet verified end-to-end.
+
+The dashboard toolbar now uses IPTV Pro branding, a rounded playlist selector, a collapsible search field and a Dashboard action. Closing search clears the repository query. Search bypasses the category filter while retaining playlist and Favorites/Recent scope. Existing playback, guide, parental controls and resizable panes remain connected; placeholder VLC and Recent implementations from the mockup are not used.
