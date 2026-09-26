@@ -78,3 +78,5 @@ Repository imports atomically replace one playlist in 1,000-row batches using ex
 PlayerViewModel exposes Pane/currentPane, pane-aware Up/Down, and clamped switchPane. The activity shares its navigation controller. Database channel queries switch reactively with playlist/search using flatMapLatest, while existing visibility/custom order and category counts remain applied.
 
 Category/channel remote Up/Down and OK now invoke ViewModel focus actions and selection events. Bounds use the actual visible rows, with All Channels at category index zero. Selections are collected only while STARTED and respect dialogs/PIN checks. Native pane-level dispatch remains the single key consumer; the global observational key flow is not subscribed a second time. Rail/player controls and Back retain native/existing behavior.
+
+Schema v4 adds separate channel playlistId and group indexes, preserving existing composite indexes and all entity fields. The migration creates indexes without changing stored rows.

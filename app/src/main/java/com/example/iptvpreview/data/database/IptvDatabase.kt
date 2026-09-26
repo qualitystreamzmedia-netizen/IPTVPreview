@@ -7,12 +7,18 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [ChannelEntity::class, EpgProgramEntity::class], version = 3, exportSchema = true)
+@Database(entities = [ChannelEntity::class, EpgProgramEntity::class], version = 4, exportSchema = true)
 abstract class IptvDatabase : RoomDatabase() {
     abstract fun channelDao(): ChannelDao
     abstract fun epgDao(): EpgDao
 
     companion object {
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE INDEX index_channels_playlistId ON channels(playlistId)")
+                db.execSQL("CREATE INDEX index_channels_group ON channels(`group`)")
+            }
+        }
         fun getDatabase(context: Context): IptvDatabase = getInstance(context)
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -37,7 +43,7 @@ abstract class IptvDatabase : RoomDatabase() {
 
         fun getInstance(context: Context): IptvDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, IptvDatabase::class.java, "iptv_channels.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                 .build().also { instance = it }
         }
     }

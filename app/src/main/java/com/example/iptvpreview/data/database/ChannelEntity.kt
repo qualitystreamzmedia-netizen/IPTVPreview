@@ -4,7 +4,7 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "channels", indices = [Index(value = ["playlistId", "orderIndex"]), Index(value = ["playlistId", "group"])])
+@Entity(tableName = "channels", indices = [Index(value = ["playlistId"]), Index(value = ["group"]), Index(value = ["playlistId", "orderIndex"]), Index(value = ["playlistId", "group"])])
 data class ChannelEntity(
     @PrimaryKey val id: String,
     val playlistId: String,

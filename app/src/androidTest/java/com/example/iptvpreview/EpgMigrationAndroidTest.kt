@@ -21,7 +21,7 @@ class EpgMigrationAndroidTest {
             old.version = 2
         }
         val db = Room.databaseBuilder(context, IptvDatabase::class.java, name)
-            .addMigrations(IptvDatabase.MIGRATION_2_3).build()
+            .addMigrations(IptvDatabase.MIGRATION_2_3, IptvDatabase.MIGRATION_3_4).build()
         try {
             assertEquals("Kept", db.epgDao().getCurrentProgram("news", 150)?.description)
             db.openHelper.readableDatabase.query("SELECT id,channel_id,start_time FROM epg_programs ORDER BY id").use {
@@ -40,10 +40,15 @@ class EpgMigrationAndroidTest {
             old.version = 1
         }
         val db = Room.databaseBuilder(context, IptvDatabase::class.java, name)
-            .addMigrations(IptvDatabase.MIGRATION_1_2, IptvDatabase.MIGRATION_2_3).build()
+            .addMigrations(IptvDatabase.MIGRATION_1_2, IptvDatabase.MIGRATION_2_3, IptvDatabase.MIGRATION_3_4).build()
         try {
             assertTrue(db.channelDao().getChannelsByPlaylist("p").first().single().isFavorite)
             val sql = db.openHelper.writableDatabase
+            listOf("playlistId", "group").forEach { column ->
+                sql.query("PRAGMA index_info('index_channels_$column')").use {
+                    assertTrue(it.moveToFirst()); assertEquals(column, it.getString(2))
+                }
+            }
             sql.execSQL("INSERT INTO epg_programs(channel_id,title,start_time,end_time) VALUES ('news','Now',1700000000000,1700003600000)")
             sql.query("SELECT id,start_time FROM epg_programs").use {
                 assertTrue(it.moveToFirst()); assertTrue(it.getLong(0) > 0); assertEquals(1700000000000L, it.getLong(1))
