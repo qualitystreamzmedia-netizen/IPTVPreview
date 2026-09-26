@@ -7,12 +7,17 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [ChannelEntity::class, EpgProgramEntity::class], version = 4, exportSchema = true)
+@Database(entities = [ChannelEntity::class, EpgProgramEntity::class, com.example.iptvpreview.data.local.VodItemEntity::class], version = 5, exportSchema = true)
 abstract class IptvDatabase : RoomDatabase() {
     abstract fun channelDao(): ChannelDao
     abstract fun epgDao(): EpgDao
 
     companion object {
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS vod_items (id TEXT NOT NULL PRIMARY KEY, playlistId TEXT NOT NULL, type TEXT NOT NULL, name TEXT NOT NULL, url TEXT NOT NULL, posterUrl TEXT, backdropUrl TEXT, durationMinutes INTEGER, year INTEGER, rating REAL, plot TEXT, seasonNumber INTEGER, episodeNumber INTEGER)")
+            }
+        }
         val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("CREATE INDEX index_channels_playlistId ON channels(playlistId)")
@@ -43,7 +48,7 @@ abstract class IptvDatabase : RoomDatabase() {
 
         fun getInstance(context: Context): IptvDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, IptvDatabase::class.java, "iptv_channels.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build().also { instance = it }
         }
     }

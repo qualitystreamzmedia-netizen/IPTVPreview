@@ -84,3 +84,5 @@ Schema v4 adds separate channel playlistId and group indexes, preserving existin
 
 DAO updates: getAllChannels sorts by group COLLATE NOCASE then source index; getFavorites sorts by name. deleteByPlaylist is available. EpgDao supports replacement inserts and cleanup of rows ending strictly before the supplied cutoff; current lookup retains exclusive end times and deterministic overlap handling. data.local DAO aliases are provided.
 
+
+Schema v5 adds vod_items with the supplied MOVIE/SERIES model, artwork URLs, duration, release year, rating, plot and optional season/episode numbers. Migration 4-to-5 adds the table without modifying existing channels or programmes. This is storage infrastructure; VOD imports and browsing screens are not connected yet.

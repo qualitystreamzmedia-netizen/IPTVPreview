@@ -21,7 +21,7 @@ class EpgMigrationAndroidTest {
             old.version = 2
         }
         val db = Room.databaseBuilder(context, IptvDatabase::class.java, name)
-            .addMigrations(IptvDatabase.MIGRATION_2_3, IptvDatabase.MIGRATION_3_4).build()
+            .addMigrations(IptvDatabase.MIGRATION_2_3, IptvDatabase.MIGRATION_3_4, IptvDatabase.MIGRATION_4_5).build()
         try {
             assertEquals("Kept", db.epgDao().getCurrentProgram("news", 150)?.description)
             db.openHelper.readableDatabase.query("SELECT id,channel_id,start_time FROM epg_programs ORDER BY id").use {
@@ -40,10 +40,21 @@ class EpgMigrationAndroidTest {
             old.version = 1
         }
         val db = Room.databaseBuilder(context, IptvDatabase::class.java, name)
-            .addMigrations(IptvDatabase.MIGRATION_1_2, IptvDatabase.MIGRATION_2_3, IptvDatabase.MIGRATION_3_4).build()
+            .addMigrations(IptvDatabase.MIGRATION_1_2, IptvDatabase.MIGRATION_2_3, IptvDatabase.MIGRATION_3_4, IptvDatabase.MIGRATION_4_5).build()
         try {
             assertTrue(db.channelDao().getChannelsByPlaylist("p").first().single().isFavorite)
             val sql = db.openHelper.writableDatabase
+            sql.execSQL("INSERT INTO vod_items(id,playlistId,type,name,url,durationMinutes,year,rating,plot) VALUES ('movie','p','MOVIE','Movie','https://example.org/movie.mp4',120,2024,8.5,'Plot')")
+            sql.execSQL("INSERT INTO vod_items(id,playlistId,type,name,url,seasonNumber,episodeNumber) VALUES ('episode','p','SERIES','Episode','https://example.org/episode.m3u8',2,3)")
+            sql.query("SELECT type,durationMinutes,year,rating,plot,seasonNumber,episodeNumber FROM vod_items ORDER BY id").use {
+                assertEquals(2, it.count)
+                assertTrue(it.moveToFirst()); assertEquals("SERIES", it.getString(0))
+                assertTrue(it.isNull(1)); assertEquals(2, it.getInt(5)); assertEquals(3, it.getInt(6))
+                assertTrue(it.moveToNext()); assertEquals("MOVIE", it.getString(0))
+                assertEquals(120, it.getInt(1)); assertEquals(2024, it.getInt(2))
+                assertEquals(8.5f, it.getFloat(3), 0f); assertEquals("Plot", it.getString(4))
+                assertTrue(it.isNull(5)); assertTrue(it.isNull(6))
+            }
             listOf("playlistId", "group").forEach { column ->
                 sql.query("PRAGMA index_info('index_channels_$column')").use {
                     assertTrue(it.moveToFirst()); assertEquals(column, it.getString(2))
