@@ -61,3 +61,5 @@ Channel navigation now uses ViewModel-owned observable focus state. Category foc
 
 
 Room schema v2 adds epg_programs and idx_epg_channel_time(channel_id, start_time), with a non-destructive v1-to-v2 migration. EPG timestamps are 64-bit milliseconds. The current XMLTV repository still uses its existing in-memory guide; writing guide data to Room is not yet connected.
+
+EpgDao.getCurrentProgram(channelId, now) maps Room columns to the existing EpgProgram domain model. It uses an exclusive end time, prefers the latest-starting overlap, breaks ties by ID, and returns null when no valid current programme exists.

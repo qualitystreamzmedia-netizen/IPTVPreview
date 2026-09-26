@@ -10,6 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 @Database(entities = [ChannelEntity::class, EpgProgramEntity::class], version = 2, exportSchema = true)
 abstract class IptvDatabase : RoomDatabase() {
     abstract fun channelDao(): ChannelDao
+    abstract fun epgDao(): EpgDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
