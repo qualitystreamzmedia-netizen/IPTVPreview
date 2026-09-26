@@ -340,9 +340,14 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
         listNavigation.select(0, visibleChannels.size)
         if (visibleChannels.isNotEmpty()) channelListScroll.scrollToItem(0)
     }
-    LaunchedEffect(listNavigation.selectedIndex, visibleChannels.size, channelListFocused) {
+    LaunchedEffect(viewModel.focusedChannelIndex, visibleChannels.size, channelListFocused) {
         if (channelListFocused && visibleChannels.isNotEmpty()) {
-            channelListScroll.animateScrollToItem(listNavigation.selectedIndex.coerceAtMost(visibleChannels.lastIndex))
+            val target = viewModel.focusedChannelIndex.coerceIn(visibleChannels.indices)
+            val layout = channelListScroll.layoutInfo
+            val item = layout.visibleItemsInfo.firstOrNull { it.index == target }
+            val fullyVisible = item != null && item.offset >= layout.viewportStartOffset &&
+                item.offset + item.size <= layout.viewportEndOffset
+            if (!fullyVisible) channelListScroll.animateScrollToItem(target)
         }
     }
     val remoteHandler by rememberUpdatedState<(MainActivity.RemoteAction) -> Unit> { action ->
@@ -522,7 +527,7 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
                         listNavigation.select(visibleChannels.indexOfFirst { it.id == channel.id }, visibleChannels.size)
                         attemptPlayChannel(channel)
                     }, listState = channelListScroll, epg = epgMap,
-                    focusedId = if (channelListFocused) visibleChannels.getOrNull(listNavigation.selectedIndex)?.id else null,
+                    focusedId = if (channelListFocused) visibleChannels.getOrNull(viewModel.focusedChannelIndex)?.id else null,
                     onToggleFav = viewModel::toggleFavorite, locked = viewModel::isChannelLocked,
                     modifier = Modifier.fillMaxWidth().weight(1f)
                     .border(1.dp, if (currentFocus == FocusArea.CHANNEL_LIST) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f) else Color.Transparent)
