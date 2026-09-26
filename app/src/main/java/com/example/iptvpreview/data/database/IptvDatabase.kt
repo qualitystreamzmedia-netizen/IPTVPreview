@@ -13,6 +13,7 @@ abstract class IptvDatabase : RoomDatabase() {
     abstract fun epgDao(): EpgDao
 
     companion object {
+        fun getDatabase(context: Context): IptvDatabase = getInstance(context)
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE channels ADD COLUMN logoUrl TEXT")

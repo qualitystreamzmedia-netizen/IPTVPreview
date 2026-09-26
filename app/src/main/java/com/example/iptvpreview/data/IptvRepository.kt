@@ -5,6 +5,8 @@ import com.example.iptvpreview.data.database.ChannelDao
 import com.example.iptvpreview.data.database.IptvDatabase
 import com.example.iptvpreview.data.database.toDomainModel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flatMapLatest
+import com.example.iptvpreview.data.database.ChannelEntity
 import com.example.iptvpreview.data.model.EpgProgram
 import com.example.iptvpreview.data.model.Playlist
 import com.example.iptvpreview.data.model.Category
@@ -49,15 +51,13 @@ class IptvRepository(
     constructor(context: Context, dao: ChannelDao) : this(context = context, dao = dao,
         client = OkHttpClient.Builder().callTimeout(45, TimeUnit.SECONDS).build())
 
-    /** Observes persisted Room rows; playlist imports are still managed separately. */
-    fun getFilteredChannels(playlistId: String?, query: String): Flow<List<Channel>> {
-        val rows = when {
-            query.isNotBlank() -> dao.searchChannels(query.trim(), playlistId)
-            playlistId != null -> dao.getChannelsByPlaylist(playlistId)
-            else -> dao.getAllChannels()
-        }
-        return rows.map { entities -> entities.map { it.toDomainModel() } }
-    }
+    fun getFilteredChannels(playlistId: String?, query: String, showOnlyFavorites: Boolean = false): Flow<List<Channel>> =
+        dao.filterChannels(playlistId, query.trim(), showOnlyFavorites)
+            .map { rows -> rows.map { it.toDomainModel() } }.flowOn(Dispatchers.IO)
+
+    fun getCategoriesForCurrentView(selectedPlaylistId: String?, searchQuery: String, showOnlyFavorites: Boolean): Flow<List<Category>> =
+        getFilteredChannels(selectedPlaylistId, searchQuery, showOnlyFavorites)
+            .map { categorySummary(it, emptySet()) }.distinctUntilChanged()
 
     val security = ParentalSecurity(store)
     private fun customOrderKey(playlistId: String) = stringPreferencesKey("custom_order_$playlistId")
@@ -116,12 +116,14 @@ class IptvRepository(
     val isEpgLoading = epgLoadingState.asStateFlow()
     private val epgUpdatedState = MutableStateFlow<Long?>(null)
     val epgLastUpdated = epgUpdatedState.asStateFlow()
-    private val channelState = MutableStateFlow<List<Channel>>(emptyList())
     private val loadingState = MutableStateFlow(false)
     private val errorState = MutableStateFlow<String?>(null)
-    val allChannels = channelState.asStateFlow()
     private val playlistState = MutableStateFlow<List<Playlist>>(emptyList())
     val playlists = playlistState.asStateFlow()
+    val allChannels = combine(dao.getAllChannels(), playlists) { rows, sources ->
+        val active = sources.filter { it.isActive }.map { it.id }
+        rows.filter { it.playlistId in active }.sortedBy { active.indexOf(it.playlistId) }.map { it.toDomainModel() }
+    }
     private val playlistsKey = stringPreferencesKey("playlists_list_json")
     private val hiddenKey = stringSetPreferencesKey("hidden_categories")
     private val recentKey = stringPreferencesKey("recent_channel_ids")
@@ -147,9 +149,13 @@ class IptvRepository(
     val channels = visibleChannels
     private val searchQueryState = MutableStateFlow("")
     val searchQuery = searchQueryState.asStateFlow()
-    val searchedChannels = combine(visibleChannels, searchQuery) { channels, query ->
-        searchChannels(channels, query)
-    }.flowOn(Dispatchers.Default)
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val searchedChannels = searchQuery.flatMapLatest { query ->
+        combine(getFilteredChannels(null, query), playlists, hiddenCategories) { channels, sources, hidden ->
+            val active = sources.filter { it.isActive }.map { it.id }.toSet()
+            channels.filter { it.playlistId in active && it.group !in hidden }
+        }
+    }
     fun setSearchQuery(query: String) { searchQueryState.value = query }
     fun clearSearch() { searchQueryState.value = "" }
     val categories = combine(allChannels, hiddenCategories) { channels, hidden ->
@@ -257,14 +263,14 @@ class IptvRepository(
 
     suspend fun removePlaylist(playlistId: String) = mutate {
         savePlaylists(playlistState.value.filterNot { it.id == playlistId })
-        channelState.value = channelState.value.filterNot { it.playlistId == playlistId }
+        dao.deletePlaylistChannels(playlistId)
     }
 
     suspend fun togglePlaylistActive(playlistId: String, active: Boolean) = mutate {
         val list = playlistState.value.map { if (it.id == playlistId) it.copy(isActive = active) else it }
         savePlaylists(list)
         if (active) list.find { it.id == playlistId }?.let { refreshInternal(it) }
-        else channelState.value = channelState.value.filterNot { it.playlistId == playlistId }
+
     }
 
     suspend fun refreshPlaylistChannels(playlistId: String) = mutate {
@@ -290,7 +296,17 @@ class IptvRepository(
 
     // Called under the repository mutex; a failed refresh retains this source's previous channels.
     private suspend fun refreshInternal(playlist: Playlist) {
-        try {
+        try { importInternal(playlist) }
+        catch (e: CancellationException) { throw e }
+        catch (_: Exception) { errorState.value = "Could not load ${playlist.name}. Check the URL, credentials and connection." }
+    }
+
+    suspend fun importPlaylist(playlist: Playlist) = lock.withLock {
+        ensureRestored()
+        importInternal(playlist)
+    }
+
+    private suspend fun importInternal(playlist: Playlist) {
             val json = JSONObject(playlist.configJson)
             val config = json.keys().asSequence().associateWith { json.getString(it) }
             val loaded = withContext(Dispatchers.IO) {
@@ -309,12 +325,10 @@ class IptvRepository(
                 favorites = migrated
                 prefs[favoritesKey] = migrated
             }
-            channelState.value = channelState.value.filterNot { it.playlistId == playlist.id } +
-                loaded.map { it.copy(isFavorite = it.id in favorites) }
-        } catch (e: CancellationException) { throw e
-        } catch (_: Exception) {
-            errorState.value = "Could not load ${playlist.name}. Check the URL, credentials and connection."
-        }
+            dao.replacePlaylistChannels(playlist.id, loaded.map {
+                ChannelEntity(it.id, it.playlistId, it.name, it.url, it.group, it.orderIndex,
+                    it.id in favorites, it.logoUrl, it.epgId)
+            })
     }
 
     suspend fun toggleFavorite(id: String) = lock.withLock {
@@ -323,7 +337,7 @@ class IptvRepository(
                 val updated = prefs[favoritesKey].orEmpty().toMutableSet()
                 if (!updated.add(id)) updated.remove(id)
                 prefs[favoritesKey] = updated
-                channelState.value = channelState.value.map { it.copy(isFavorite = it.id in updated) }
+                dao.setFavorite(id, id in updated)
             }
         } catch (e: CancellationException) { throw e
         } catch (_: Exception) { errorState.value = "Could not save favorites." }

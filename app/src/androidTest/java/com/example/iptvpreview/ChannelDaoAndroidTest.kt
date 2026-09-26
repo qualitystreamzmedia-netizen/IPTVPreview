@@ -33,6 +33,9 @@ class ChannelDaoAndroidTest {
             dao.insertAll(listOf(news.copy(name = "Updated", isFavorite = true)))
             assertTrue(dao.getChannelsByPlaylist("p").first().last().isFavorite)
             assertEquals("Updated", dao.searchChannels("Updated").first().single().name)
+            assertEquals(listOf("a"), repo.getFilteredChannels("p", "Updated", true).first().map { it.id })
+            assertTrue(repo.getFilteredChannels("q", "Updated", true).first().isEmpty())
+            assertTrue(repo.getFilteredChannels("p", "sports", true).first().isEmpty())
             dao.insertAll((0..505).map { news.copy(id = "extra$it", playlistId = "extra") })
             assertEquals(500, dao.searchChannels("").first().size)
         } finally { db.close() }

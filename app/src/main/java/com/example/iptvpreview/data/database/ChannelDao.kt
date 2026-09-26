@@ -8,6 +8,21 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ChannelDao {
+    @Query("SELECT * FROM channels WHERE (:playlistId IS NULL OR playlistId = :playlistId) AND (:favoritesOnly = 0 OR isFavorite = 1) AND (:query = '' OR name LIKE '%' || :query || '%' OR `group` LIKE '%' || :query || '%') ORDER BY playlistId, orderIndex, id")
+    fun filterChannels(playlistId: String?, query: String, favoritesOnly: Boolean): Flow<List<ChannelEntity>>
+
+    @Query("SELECT * FROM channels WHERE isFavorite = 1 ORDER BY playlistId, orderIndex, id")
+    fun getFavorites(): Flow<List<ChannelEntity>>
+
+    @Query("UPDATE channels SET isFavorite = :favorite WHERE id = :id")
+    suspend fun setFavorite(id: String, favorite: Boolean)
+
+    @androidx.room.Transaction
+    suspend fun replacePlaylistChannels(playlistId: String, channels: List<ChannelEntity>) {
+        require(channels.all { it.playlistId == playlistId })
+        deletePlaylistChannels(playlistId)
+        channels.chunked(1000).forEach { insertAll(it) }
+    }
     @Query("DELETE FROM channels WHERE playlistId = :playlistId")
     suspend fun deletePlaylistChannels(playlistId: String)
 

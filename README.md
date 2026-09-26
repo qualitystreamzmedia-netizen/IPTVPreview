@@ -42,12 +42,12 @@ See GitHub Releases for the current debug APK and source archive. Build, JVM tes
 
 Live streaming, PiP, and the latest remote-focus interactions have not been comprehensively verified interactively. MEmu UI inspection returned no accessible root. The APK is a debug build, not a store-signed production release.
 
-Coil 2.6.0 is included but channel logos still use placeholders. The guide shows current/upcoming programmes rather than a complete schedule. Movies/series libraries and automatic Home-to-PiP are not implemented. Room provides a channel entity, playlist-ordered queries, name/group search capped at 500 results, replacement inserts, and an exported version 1 schema. This database layer is available for integration; active repository persistence still uses DataStore.
+Coil 2.6.0 is included but channel logos still use placeholders. The guide shows current/upcoming programmes rather than a complete schedule. Movies/series libraries and automatic Home-to-PiP are not implemented. Room provides a channel entity, playlist-ordered queries, name/group search capped at 500 results, replacement inserts, and an exported version 1 schema. Room is the active channel cache; DataStore retains playlist configuration and user settings.
 
 Supply your own source in Settings; the requested public M3U example is https://iptv-org.github.io/iptv/index.m3u. Source availability depends on the provider.
 
 
-The repository exposes getFilteredChannels(playlistId, query) for reactive Room reads. Search respects the playlist scope before the 500-result cap; blank queries return the selected playlist or all rows. Room stores channel logos and EPG IDs; hidden flags remain in the existing repository flow. The existing importer/browser have not switched to this API.
+The repository exposes getFilteredChannels(playlistId, query) for reactive Room reads. Search respects the playlist scope before the 500-result cap; blank queries return the selected playlist or all rows. Room stores channel logos and EPG IDs; hidden flags remain in the existing repository flow. The importer persists channel rows in Room and the browser observes database-backed flows.
 
 ## Background M3U import
 
@@ -55,7 +55,7 @@ Call `ImportPlaylistWorker.enqueue(context, url, playlistId)` to schedule a netw
 
 The worker streams a maximum 100 MB download to a temporary file, then parses line by line and inserts batches of 1,000 rows in one outer Room transaction. Invalid/empty input and cancellation roll back the replacement. Room favorites survive refresh; other playlists remain untouched. Transient HTTP/network failures retry at most three attempts with exponential backoff. Temporary files are removed on completion. A cancelable foreground notification and dataSync service declaration are included.
 
-This entry point imports M3U into the basic Room channel table. The existing playlist-settings UI still uses its original importer; it does not yet enqueue this worker or read this cache. Xtream imports and notification permission UX are not migrated here. Android 13+ users may need to allow notifications in system settings to see the foreground notification in the drawer.
+This entry point imports M3U into the basic Room channel table. Playlist Settings imports write to Room directly; the separate WorkManager enqueue API remains available but is not the Settings scheduler. Xtream imports and notification permission UX are not migrated here. Android 13+ users may need to allow notifications in system settings to see the foreground notification in the drawer.
 
 Channel navigation now uses ViewModel-owned observable focus state. Category focus reports the actual focused row (zero is All Channels), and indices are clamped as lists shrink. Left/Right retain native pane navigation; the event stream is not processed twice.
 
@@ -72,3 +72,5 @@ Room compilation uses KSP 1.9.22-1.0.17 with Kotlin 1.9.22. Runtime dependencies
 
 Schema v3 adds channel logoUrl/epgId and the playlist/group index, retaining the source-order index. Worker imports and domain mapping preserve these fields. EPG entities expose dbId and non-null required values while retaining existing SQL column names. Migration preserves legacy EPG IDs and rows, replacing null required values with empty strings/zero; empty titles are excluded from current-program lookup. data.local entity aliases are available for the supplied imports.
 
+
+Repository imports atomically replace one playlist in 1,000-row batches using existing M3U/Xtream parsing and stable channel IDs. SQL filtering combines playlist, search and favorites; category summaries retain source order. Disabled sources keep their cache, deletion removes it, and failed refreshes retain cached channels. getFilteredChannels returns all matching rows (the legacy searchChannels helper still has its 500-result cap).
