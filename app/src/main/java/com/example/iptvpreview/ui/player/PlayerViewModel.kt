@@ -8,18 +8,37 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class PlayerViewModel(private val repo: IptvRepository) : ViewModel() {
+    enum class Pane { NAV, CATEGORY, CHANNEL, PLAYER }
+    val navController = com.example.iptvpreview.ui.navigation.IptvNavController()
+    var currentPane: Pane
+        get() = Pane.entries[navController.currentArea.ordinal]
+        set(value) { navController.setFocus(com.example.iptvpreview.ui.navigation.FocusArea.entries[value.ordinal]) }
     val channelFocus = com.example.iptvpreview.ui.utils.ListNavigationState()
     private val categoryFocus = com.example.iptvpreview.ui.utils.ListNavigationState()
     val focusedChannelIndex: Int get() = channelFocus.selectedIndex
     // Zero represents "All Channels"; category rows start at one.
     val focusedCategoryIndex: Int get() = categoryFocus.selectedIndex
-    fun moveFocusDown(maxIndex: Int) = channelFocus.moveBy(1, maxIndex)
-    fun moveFocusUp(maxIndex: Int) = channelFocus.moveBy(-1, maxIndex)
+    fun moveFocusDown(maxIndex: Int) {
+        when (currentPane) {
+            Pane.CATEGORY -> categoryFocus.moveBy(1, maxIndex)
+            Pane.CHANNEL -> channelFocus.moveBy(1, maxIndex)
+            else -> Unit
+        }
+    }
+    fun moveFocusUp(maxIndex: Int = Int.MAX_VALUE) {
+        when (currentPane) {
+            Pane.CATEGORY -> categoryFocus.moveBy(-1, maxIndex)
+            Pane.CHANNEL -> channelFocus.moveBy(-1, maxIndex)
+            else -> Unit
+        }
+    }
+    fun switchPane(direction: Int) = navController.switchPane(direction)
     fun setFocusedCategory(index: Int, categoryCount: Int) = categoryFocus.select(index, categoryCount + 1)
 
     val uiScale = repo.uiScale.stateIn(viewModelScope, SharingStarted.Eagerly, 1f)
@@ -115,9 +134,13 @@ class PlayerViewModel(private val repo: IptvRepository) : ViewModel() {
             catch (_: Exception) { categoryOrderErrorState.value = "Could not reset category order." }
         }
     }
-    val displayedChannels = combine(repo.searchedChannels, repo.allChannels, selectedPlaylistId, customCategoryOrders) { channels, allChannels, selectedId, orders ->
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private val databaseChannels = combine(selectedPlaylistId, repo.searchQuery) { id, query -> id to query }
+        .flatMapLatest { (id, query) -> repo.getFilteredChannels(id, query, false) }
+    val displayedChannels = combine(databaseChannels, repo.visibleChannels, selectedPlaylistId, customCategoryOrders) { channels, allChannels, selectedId, orders ->
         val source = allChannels.filter { selectedId == null || it.playlistId == selectedId }
-        val filtered = channels.filter { selectedId == null || it.playlistId == selectedId }
+        val allowed = source.map { it.id }.toHashSet()
+        val filtered = channels.filter { it.id in allowed }
         com.example.iptvpreview.data.sortChannelsBySourceOrder(filtered, source, orders[selectedId])
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val categories = combine(displayedChannels, repo.allChannels, selectedPlaylistId, customCategoryOrders) { channels, allChannels, selectedId, orders ->

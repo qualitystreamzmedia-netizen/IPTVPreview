@@ -100,7 +100,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
-    private val navController = IptvNavController()
+    private val navController get() = playerViewModel.navController
     private val _keyEventFlow = MutableSharedFlow<KeyEvent>(extraBufferCapacity = 64,
         onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST)
     val keyEventFlow = _keyEventFlow.asSharedFlow()
@@ -174,7 +174,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteAction> = emptyFlow(),
     onNavigateToDashboard: (() -> Unit)? = null, onParentalControls: () -> Unit = {}, onManageCategoryOrder: () -> Unit = {},
-    navController: IptvNavController = rememberIptvNavController()) {
+    navController: IptvNavController = viewModel.navController) {
     val channels by viewModel.channels.collectAsState()
     val displayedChannels by viewModel.displayedChannels.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
@@ -284,6 +284,11 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
         }
     }
     var channelListFocused by remember { mutableStateOf(false) }
+    LaunchedEffect(currentFocus) {
+        if (!showSettingsDialog && !showManagerDialog && !showProgramInfo && pendingChannel == null) {
+            requestPaneFocus(currentFocus)
+        }
+    }
     var remotePlayback by remember { mutableStateOf(false) }
     DisposableEffect(appLifecycle) {
         val observer = LifecycleEventObserver { _, event ->

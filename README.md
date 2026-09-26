@@ -74,3 +74,5 @@ Schema v3 adds channel logoUrl/epgId and the playlist/group index, retaining the
 
 
 Repository imports atomically replace one playlist in 1,000-row batches using existing M3U/Xtream parsing and stable channel IDs. SQL filtering combines playlist, search and favorites; category summaries retain source order. Disabled sources keep their cache, deletion removes it, and failed refreshes retain cached channels. getFilteredChannels returns all matching rows (the legacy searchChannels helper still has its 500-result cap).
+
+PlayerViewModel exposes Pane/currentPane, pane-aware Up/Down, and clamped switchPane. The activity shares its navigation controller. Database channel queries switch reactively with playlist/search using flatMapLatest, while existing visibility/custom order and category counts remain applied.

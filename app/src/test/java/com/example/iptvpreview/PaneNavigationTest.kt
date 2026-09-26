@@ -7,6 +7,18 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class PaneNavigationTest {
+    @Test fun controllerClampsDirectionsAndKeepsObservableStateInSync() {
+        val controller = com.example.iptvpreview.ui.navigation.IptvNavController()
+        controller.switchPane(-1)
+        assertEquals(FocusArea.CATEGORY_LIST, controller.currentArea)
+        repeat(6) { controller.switchPane(Int.MIN_VALUE) }
+        assertEquals(FocusArea.NAV_RAIL, controller.focusArea.value)
+        controller.switchPane(0)
+        assertEquals(FocusArea.NAV_RAIL, controller.currentArea)
+        repeat(6) { controller.switchPane(Int.MAX_VALUE) }
+        assertEquals(FocusArea.PLAYER_CONTROLS, controller.currentArea)
+        assertEquals(controller.currentArea, controller.focusArea.value)
+    }
     @Test fun scrollTargetsHandleEmptyListsAndShrinkingBounds() {
         assertEquals(null, remoteScrollTarget(0, 1, 0))
         assertEquals(0, remoteScrollTarget(0, -1, 5))
