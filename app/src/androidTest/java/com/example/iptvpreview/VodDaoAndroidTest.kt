@@ -31,6 +31,16 @@ class VodDaoAndroidTest {
             assertNull(dao.getById(movie.id))
             assertNull(dao.getById(episode.id))
             assertEquals(other, dao.getById(other.id))
+            val rows = (0..59).map { index -> movie.copy(id = "search:$index",
+                name = "Film " + index.toString().padStart(2, '0'),
+                playlistId = if (index % 2 == 0) "a" else "b") }
+            dao.insertAll(rows.reversed() + episode.copy(name = "A Series"))
+            assertEquals(rows + other, dao.getVodsByType("MOVIE").first())
+            assertEquals(listOf(episode.copy(name = "A Series")), dao.getVodsByType("SERIES").first())
+            assertTrue(dao.getVodsByType("UNKNOWN").first().isEmpty())
+            assertEquals(rows.take(50), dao.searchVods("fILm").first())
+            assertEquals(listOf(rows[59]), dao.searchVods("59").first())
+            assertTrue(dao.searchVods("missing").first().isEmpty())
         } finally { db.close() }
     }
 }

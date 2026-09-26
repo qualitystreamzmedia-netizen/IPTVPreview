@@ -8,6 +8,12 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface VodDao {
+    @Query("SELECT * FROM vod_items WHERE type = :type ORDER BY name ASC, id ASC")
+    fun getVodsByType(type: String): Flow<List<VodItemEntity>>
+
+    @Query("SELECT * FROM vod_items WHERE name LIKE '%' || :query || '%' ORDER BY name ASC, id ASC LIMIT 50")
+    fun searchVods(query: String): Flow<List<VodItemEntity>>
+
     @Query("SELECT * FROM vod_items WHERE playlistId = :playlistId AND type = :type ORDER BY name COLLATE NOCASE, id")
     fun getItems(playlistId: String, type: VodType): Flow<List<VodItemEntity>>
 
