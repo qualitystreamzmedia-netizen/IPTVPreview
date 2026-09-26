@@ -59,3 +59,5 @@ This entry point imports M3U into the basic Room channel table. The existing pla
 
 Channel navigation now uses ViewModel-owned observable focus state. Category focus reports the actual focused row (zero is All Channels), and indices are clamped as lists shrink. Left/Right retain native pane navigation; the event stream is not processed twice.
 
+
+Room schema v2 adds epg_programs and idx_epg_channel_time(channel_id, start_time), with a non-destructive v1-to-v2 migration. EPG timestamps are 64-bit milliseconds. The current XMLTV repository still uses its existing in-memory guide; writing guide data to Room is not yet connected.
