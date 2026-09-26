@@ -98,7 +98,19 @@ class PlayerViewModel(private val repo: IptvRepository) : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     private val requestedChannelState = MutableStateFlow<String?>(null)
     val requestedChannelId = requestedChannelState.asStateFlow()
+    val movies = repo.movies.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    val series = repo.series.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    private val requestedVodState = MutableStateFlow<com.example.iptvpreview.data.Channel?>(null)
+    val requestedVod = requestedVodState.asStateFlow()
+    fun selectVodItem(item: com.example.iptvpreview.data.local.VodItemEntity) {
+        requestedChannelState.value = null
+        requestedVodState.value = com.example.iptvpreview.data.Channel(
+            id = item.id, playlistId = item.playlistId, name = item.name,
+            url = item.url, group = "VOD", logoUrl = item.posterUrl)
+    }
+    fun consumeRequestedVod() { requestedVodState.value = null }
     fun selectChannel(channel: com.example.iptvpreview.data.Channel) {
+        requestedVodState.value = null
         selectPlaylist(channel.playlistId)
         clearSearch()
         requestedChannelState.value = channel.id

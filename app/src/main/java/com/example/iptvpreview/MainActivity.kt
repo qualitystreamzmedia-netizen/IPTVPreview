@@ -227,8 +227,9 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
     }
     LaunchedEffect(selectedChannel) { if (selectedChannel == null) fullscreen = false }
     val currentStatus = vlcController?.status?.collectAsState()?.value ?: PlayerStatus.IDLE
+    var vodPlaybackId by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(channels) {
-        if (selectedChannel != null && channels.none { it.id == selectedChannel?.id }) {
+        if (selectedChannel != null && selectedChannel?.id != vodPlaybackId && channels.none { it.id == selectedChannel?.id }) {
             selectedChannel = null
             vlcController = null
             playbackError = null
@@ -305,6 +306,7 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
         onDispose { appLifecycle.lifecycle.removeObserver(observer) }
     }
     val playGranted: (Channel) -> Unit = { channel ->
+        if (channel.id != vodPlaybackId) vodPlaybackId = null
         if (playbackError != null || currentStatus == PlayerStatus.ERROR) playbackAttempt++
         if (selectedChannel?.id != channel.id || playbackError != null || currentStatus == PlayerStatus.ERROR) vlcController = null
         selectedChannel = channel
@@ -317,8 +319,16 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
         }
     }
     val requestedChannelId by viewModel.requestedChannelId.collectAsState()
+    val requestedVod by viewModel.requestedVod.collectAsState()
+    LaunchedEffect(requestedVod, securityReady) {
+        if (securityReady) requestedVod?.let { item ->
+            vodPlaybackId = item.id
+            viewModel.consumeRequestedVod()
+            attemptPlayChannel(item)
+        }
+    }
     LaunchedEffect(currentStatus, selectedChannel?.id) {
-        if (currentStatus == PlayerStatus.PLAYING) selectedChannel?.let(viewModel::markAsRecent)
+        if (currentStatus == PlayerStatus.PLAYING && selectedChannel?.id != vodPlaybackId) selectedChannel?.let(viewModel::markAsRecent)
     }
     LaunchedEffect(requestedChannelId, securityReady, channels, isLoading) {
         val requested = requestedChannelId
@@ -616,7 +626,7 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
                     .onFocusChanged { if (it.hasFocus) navController.setFocus(FocusArea.PLAYER_CONTROLS) }.focusGroup(),
                 program = selectedChannel?.epgId?.let { epgMap[it] },
                 isFavorite = channels.find { it.id == selectedChannel?.id }?.isFavorite == true,
-                onFavorite = { selectedChannel?.let { viewModel.toggleFavorite(it.id) } },
+                onFavorite = { selectedChannel?.takeIf { it.id != vodPlaybackId }?.let { viewModel.toggleFavorite(it.id) } },
                 onPlay = { if (currentStatus == PlayerStatus.PLAYING) vlcController?.pause() else vlcController?.play() },
                 onStop = { vlcController?.stop(); selectedChannel = null; vlcController = null }) {
                 val channel = selectedChannel

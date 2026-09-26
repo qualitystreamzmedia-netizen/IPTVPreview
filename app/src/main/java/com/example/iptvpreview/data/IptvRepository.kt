@@ -50,6 +50,8 @@ class IptvRepository(
     private val database: IptvDatabase = IptvDatabase.getInstance(context)
 ) {
     private val vodImportLock = Mutex()
+    val movies = database.vodDao().getVodsByType("MOVIE")
+    val series = database.vodDao().getVodsByType("SERIES")
     suspend fun importVodContent(playlist: Playlist) = vodImportLock.withLock {
         importXtreamVod(playlist, client, database)
     }
