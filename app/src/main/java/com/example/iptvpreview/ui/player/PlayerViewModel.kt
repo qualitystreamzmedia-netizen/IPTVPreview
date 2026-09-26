@@ -174,6 +174,9 @@ class PlayerViewModel(private val repo: IptvRepository) : ViewModel() {
             counts[category.name]?.let { category.copy(count = it) }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    // Sidebar index zero is All Channels; categories occupy indices 1..size.
+    fun getMaxCategoryIndex(): Int = categories.value.size
+    fun getMaxChannelIndex(): Int = displayedChannels.value.lastIndex.coerceAtLeast(0)
     val searchedChannels = displayedChannels
     fun updateSearch(query: String) { repo.setSearchQuery(query); channelFocus.select(0, 1) }
     fun setSearchQuery(query: String) = updateSearch(query)
