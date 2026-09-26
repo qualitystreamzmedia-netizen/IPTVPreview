@@ -275,6 +275,7 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
     val playerFocus = remember { FocusRequester() }
     val requestPaneFocus: (FocusArea) -> Unit = { area ->
         if (!expandedPlayer || area == FocusArea.PLAYER_CONTROLS) {
+            navController.setFocus(area)
             when (area) {
                 FocusArea.NAV_RAIL -> railFocus
                 FocusArea.CATEGORY_LIST -> categoryFocus
@@ -338,6 +339,24 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
         visibleChannels.getOrNull(index)?.let { channel ->
             remotePlayback = true
             attemptPlayChannel(channel)
+        }
+    }
+    val handleSelection by rememberUpdatedState<(PlayerViewModel.FocusSelection) -> Unit> { selection ->
+        if (!showSettingsDialog && !showManagerDialog && !showProgramInfo && pendingChannel == null && !inPip) {
+            when (selection.pane) {
+                PlayerViewModel.Pane.CHANNEL -> activateChannel(selection.index)
+                PlayerViewModel.Pane.CATEGORY -> {
+                    val choices = sidebarCategories.filterNot { it.isHidden }
+                    if (selection.index == 0) selectedCategory = null
+                    else choices.getOrNull(selection.index - 1)?.let { selectedCategory = it.name }
+                }
+                else -> Unit
+            }
+        }
+    }
+    LaunchedEffect(viewModel, appLifecycle) {
+        appLifecycle.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            viewModel.selections.collect { handleSelection(it) }
         }
     }
     val listNavigation = rememberRemoteListState(visibleChannels.size, remoteActions,
@@ -526,7 +545,12 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
                 selectedPlaylistName = playlists.find { it.id == selectedPlaylistId }?.name,
                 onEditOrder = onManageCategoryOrder, listState = categoryListScroll,
                 isFocused = currentFocus == FocusArea.CATEGORY_LIST,
-                onFocusIndexChanged = { viewModel.setFocusedCategory(it, sidebarCategories.count { cat -> !cat.isHidden }) })
+                onFocusIndexChanged = { viewModel.setFocusedCategory(it, sidebarCategories.count { cat -> !cat.isHidden }) },
+                focusedIndex = viewModel.focusedCategoryIndex,
+                onRemoteMove = { down ->
+                    val maxIndex = sidebarCategories.count { !it.isHidden } // Includes All Channels at index zero.
+                    if (down) viewModel.moveFocusDown(maxIndex) else viewModel.moveFocusUp(maxIndex)
+                }, onRemoteSelect = viewModel::selectItem)
             ResizableDivider(enabled = !expandedPlayer, onResize = resizeCategories,
                 onStep = { deltaDp -> resizeCategories(with(density) { deltaDp.dp.toPx() }) },
                 label = "Resize categories and channels", resizedPanel = "categories")
@@ -566,8 +590,12 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
                         else if (action == MainActivity.RemoteAction.UP && listNavigation.selectedIndex == 0) false
                         else {
                             if (native.action == KeyEvent.ACTION_DOWN && (action in listOf(MainActivity.RemoteAction.UP, MainActivity.RemoteAction.DOWN) || native.repeatCount == 0)) {
-                                if (action == MainActivity.RemoteAction.LEFT || action == MainActivity.RemoteAction.RIGHT) remoteHandler(action)
-                                else listNavigation.handle(action, visibleChannels.size, activateChannel)
+                                when (action) {
+                                    MainActivity.RemoteAction.UP -> viewModel.moveFocusUp(visibleChannels.lastIndex)
+                                    MainActivity.RemoteAction.DOWN -> viewModel.moveFocusDown(visibleChannels.lastIndex)
+                                    MainActivity.RemoteAction.OK -> viewModel.selectItem()
+                                    else -> Unit
+                                }
                             }
                             true
                         }

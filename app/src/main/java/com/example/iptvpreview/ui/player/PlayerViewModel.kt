@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 
 class PlayerViewModel(private val repo: IptvRepository) : ViewModel() {
@@ -39,6 +40,17 @@ class PlayerViewModel(private val repo: IptvRepository) : ViewModel() {
         }
     }
     fun switchPane(direction: Int) = navController.switchPane(direction)
+    data class FocusSelection(val pane: Pane, val index: Int)
+    private val selectionEvents = kotlinx.coroutines.flow.MutableSharedFlow<FocusSelection>(extraBufferCapacity = 16)
+    val selections = selectionEvents.asSharedFlow()
+    fun selectItem() {
+        val index = when (currentPane) {
+            Pane.CATEGORY -> focusedCategoryIndex
+            Pane.CHANNEL -> focusedChannelIndex
+            else -> return // Native rail/player buttons keep their own activation.
+        }
+        selectionEvents.tryEmit(FocusSelection(currentPane, index))
+    }
     fun setFocusedCategory(index: Int, categoryCount: Int) = categoryFocus.select(index, categoryCount + 1)
 
     val uiScale = repo.uiScale.stateIn(viewModelScope, SharingStarted.Eagerly, 1f)
