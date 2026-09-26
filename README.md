@@ -60,7 +60,7 @@ This entry point imports M3U into the basic Room channel table. Playlist Setting
 Channel navigation now uses ViewModel-owned observable focus state. Category focus reports the actual focused row (zero is All Channels), and indices are clamped as lists shrink. Left/Right retain native pane navigation; the event stream is not processed twice.
 
 
-Room schema v2 adds epg_programs and idx_epg_channel_time(channel_id, start_time), with a non-destructive v1-to-v2 migration. EPG timestamps are 64-bit milliseconds. The current XMLTV repository still uses its existing in-memory guide; writing guide data to Room is not yet connected.
+Room schema v2 adds epg_programs and idx_epg_channel_time(channel_id, start_time), with a non-destructive v1-to-v2 migration. EPG timestamps are 64-bit milliseconds. XMLTV Settings imports now stream into Room in batches of 500 programmes. A single transaction replaces the configured guide; parsing failures retain the previous guide. Gzip and XMLTV timezone offsets are supported. Programmes ending more than 24 hours ago are discarded. The current/upcoming UI snapshot is published after commit, and clearing the guide also clears its Room rows.
 
 EpgDao.getCurrentProgram(channelId, now) returns EpgProgramEntity with its database ID. It uses an exclusive end time, prefers the latest-starting overlap, breaks ties by ID, and returns null when no valid current programme exists.
 
@@ -83,3 +83,4 @@ Schema v4 adds separate channel playlistId and group indexes, preserving existin
 
 
 DAO updates: getAllChannels sorts by group COLLATE NOCASE then source index; getFavorites sorts by name. deleteByPlaylist is available. EpgDao supports replacement inserts and cleanup of rows ending strictly before the supplied cutoff; current lookup retains exclusive end times and deterministic overlap handling. data.local DAO aliases are provided.
+

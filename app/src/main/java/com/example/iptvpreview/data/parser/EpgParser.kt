@@ -2,6 +2,8 @@ package com.example.iptvpreview.data.parser
 
 import com.example.iptvpreview.data.model.EpgProgram
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.trySendBlocking
+import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import org.xml.sax.Attributes
@@ -18,6 +20,13 @@ import java.util.TimeZone
 import javax.xml.parsers.SAXParserFactory
 
 class EpgParser {
+    /** Bounded bridge from synchronous SAX callbacks to a suspending database consumer. */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    fun programs(inputStream: InputStream): kotlinx.coroutines.flow.Flow<EpgProgram> = kotlinx.coroutines.flow.channelFlow {
+        parseInto(inputStream) { program ->
+            trySendBlocking(program).getOrThrow()
+        }
+    }.buffer(64)
     /**
      * Streams XMLTV on Dispatchers.IO and closes the supplied stream, even on failure.
      * XML is parsed incrementally; the returned program list still resides in memory.

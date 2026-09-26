@@ -46,7 +46,8 @@ class IptvRepository(
     context: Context,
     private val client: OkHttpClient = OkHttpClient.Builder().callTimeout(45, TimeUnit.SECONDS).build(),
     private val store: androidx.datastore.core.DataStore<androidx.datastore.preferences.core.Preferences> = context.applicationContext.playlistStore,
-    private val dao: ChannelDao = IptvDatabase.getInstance(context).channelDao()
+    private val dao: ChannelDao = IptvDatabase.getInstance(context).channelDao(),
+    private val database: IptvDatabase = IptvDatabase.getInstance(context)
 ) {
     constructor(context: Context, dao: ChannelDao) : this(context = context, dao = dao,
         client = OkHttpClient.Builder().callTimeout(45, TimeUnit.SECONDS).build())
@@ -179,6 +180,7 @@ class IptvRepository(
 
     suspend fun clearEpg() = epgLock.withLock {
         try {
+            database.epgDao().deleteAll()
             store.edit { it.remove(epgUrlKey) }
             epgUrlState.value = ""
             _epgMap.value = emptyMap()
@@ -188,7 +190,9 @@ class IptvRepository(
         } catch (_: Exception) { epgErrorState.value = "Could not remove the saved guide." }
     }
 
-    /** Loads a current/upcoming snapshot. Call again to refresh the guide over time. */
+    suspend fun importEpg(xmlUrl: String) = loadEpg(xmlUrl)
+
+    /** Persists the guide and publishes its current/upcoming snapshot. */
     suspend fun loadEpg(epgUrl: String) = epgLock.withLock {
         epgErrorState.value = null
         epgLoadingState.value = true
@@ -199,7 +203,7 @@ class IptvRepository(
                 client.newCall(request).execute().use { response ->
                     check(response.isSuccessful) { "EPG request failed" }
                     val body = response.body ?: error("Empty EPG response")
-                    epgParser.parseCurrentOrNext(body.byteStream())
+                    importEpgStream(database, body.byteStream())
                 }
             }
             store.edit { it[epgUrlKey] = normalizedUrl }

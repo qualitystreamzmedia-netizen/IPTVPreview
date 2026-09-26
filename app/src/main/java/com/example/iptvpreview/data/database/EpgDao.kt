@@ -7,6 +7,8 @@ import androidx.room.OnConflictStrategy
 
 @Dao
 interface EpgDao {
+    @Query("DELETE FROM epg_programs")
+    suspend fun deleteAll()
     // End time is exclusive, matching EpgProgram.isLive().
     @Query("""
         SELECT * FROM epg_programs
