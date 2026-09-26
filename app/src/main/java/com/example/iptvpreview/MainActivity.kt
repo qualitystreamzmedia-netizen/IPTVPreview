@@ -404,7 +404,13 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
             remoteActions.collect { remoteHandler(it) }
         }
     }
-    BackHandler(enabled = (selectedChannel != null || onNavigateToDashboard != null) && pendingChannel == null && !showSettingsDialog && !showProgramInfo && !showManagerDialog) {
+    BackHandler(enabled = (isSearchActive || selectedChannel != null || onNavigateToDashboard != null) && pendingChannel == null && !showSettingsDialog && !showProgramInfo && !showManagerDialog) {
+        if (isSearchActive) {
+            isSearchActive = false
+            viewModel.clearSearch()
+            requestPaneFocus(FocusArea.CHANNEL_LIST)
+            return@BackHandler
+        }
         if (fullscreen) { fullscreen = false; return@BackHandler }
         if (navController.focusArea.value != FocusArea.NAV_RAIL) {
             requestPaneFocus(adjacentFocusArea(navController.focusArea.value, false))
