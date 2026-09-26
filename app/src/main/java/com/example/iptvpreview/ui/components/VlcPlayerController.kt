@@ -2,6 +2,9 @@ package com.example.iptvpreview.ui.components
 
 import android.os.Handler
 import android.os.Looper
+import android.net.Uri
+import org.videolan.libvlc.Media
+import kotlinx.coroutines.*
 import androidx.annotation.MainThread
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,21 +33,36 @@ class VlcPlayerController internal constructor(
     val trackRevision = _trackRevision.asStateFlow()
     private val mainHandler = Handler(Looper.getMainLooper())
     private var transportStatus = PlayerStatus.IDLE
+    private val retryScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var retryJob: Job? = null
+    private val retryPolicy = PlaybackRetryPolicy()
+    private var currentUrl: String? = null
+    private var playbackRequested = false
+    private var generation = 0L
 
     init {
+        attachListener()
+    }
+
+    private fun attachListener() {
+        val eventGeneration = generation
         // LibVLC supports one listener per player. Own it here so observers do
         // not replace each other's buffering, error, or playback notifications.
         mediaPlayer.setEventListener { event ->
             val type = event.type
             val bufferPercent = if (type == MediaPlayer.Event.Buffering) event.buffering else 100f
             mainHandler.post {
-                if (!isReleased) {
+                if (!isReleased && eventGeneration == generation && playbackRequested) {
                     when (type) {
                         MediaPlayer.Event.Opening -> updateStatus(PlayerStatus.BUFFERING)
-                        MediaPlayer.Event.Playing -> updateStatus(PlayerStatus.PLAYING)
+                        MediaPlayer.Event.Playing -> {
+                            retryJob?.cancel(); retryJob = null
+                            retryPolicy.reset()
+                            updateStatus(PlayerStatus.PLAYING)
+                        }
                         MediaPlayer.Event.Paused -> updateStatus(PlayerStatus.PAUSED)
-                        MediaPlayer.Event.Stopped, MediaPlayer.Event.EndReached -> updateStatus(PlayerStatus.IDLE)
-                        MediaPlayer.Event.EncounteredError -> updateStatus(PlayerStatus.ERROR)
+                        MediaPlayer.Event.Stopped, MediaPlayer.Event.EndReached -> if (retryJob == null) updateStatus(PlayerStatus.IDLE)
+                        MediaPlayer.Event.EncounteredError -> scheduleRetry()
                         MediaPlayer.Event.Buffering -> _status.value = bufferingStatus(transportStatus, bufferPercent)
                         MediaPlayer.Event.ESAdded, MediaPlayer.Event.ESDeleted, MediaPlayer.Event.ESSelected -> _trackRevision.value++
                     }
@@ -58,21 +76,72 @@ class VlcPlayerController internal constructor(
         _status.value = value
     }
 
-    internal fun reportError() { if (!isReleased) updateStatus(PlayerStatus.ERROR) }
+    internal fun reportError() { if (!isReleased) scheduleRetry() }
+
+    private fun scheduleRetry() {
+        if (!playbackRequested || isReleased || retryJob != null) return
+        val url = currentUrl ?: run { updateStatus(PlayerStatus.ERROR); return }
+        val wait = retryPolicy.nextDelayMillis() ?: run { updateStatus(PlayerStatus.ERROR); return }
+        updateStatus(PlayerStatus.BUFFERING)
+        val token = generation
+        retryJob = retryScope.launch {
+            delay(wait)
+            retryJob = null
+            if (!isReleased && playbackRequested && token == generation) loadMedia(url)
+        }
+    }
+
+    fun playUrl(url: String) {
+        if (isReleased) return
+        retryJob?.cancel(); retryJob = null
+        retryPolicy.reset()
+        currentUrl = url
+        playbackRequested = true
+        loadMedia(url)
+    }
+
+    private fun loadMedia(url: String) {
+        generation++
+        mediaPlayer.setEventListener(null)
+        mediaPlayer.stop()
+        attachListener()
+        updateStatus(PlayerStatus.BUFFERING)
+        try {
+            val media = Media(libVLC, Uri.parse(url))
+            try { media.setHWDecoderEnabled(true, false); mediaPlayer.media = media }
+            finally { media.release() }
+            mediaPlayer.play()
+        } catch (_: Exception) { scheduleRetry() }
+    }
 
     fun play() {
         if (!isReleased) {
+            if (currentUrl != null && (_status.value == PlayerStatus.ERROR || _status.value == PlayerStatus.IDLE)) {
+                playUrl(currentUrl!!)
+                return
+            }
+            playbackRequested = true
             if (!mediaPlayer.isPlaying) updateStatus(PlayerStatus.BUFFERING)
             mediaPlayer.play()
         }
     }
     fun pause() {
         if (!isReleased) {
+            playbackRequested = false
+            retryJob?.cancel(); retryJob = null
+            generation++
+            attachListener()
             mediaPlayer.pause()
             if (_status.value != PlayerStatus.IDLE && _status.value != PlayerStatus.ERROR) updateStatus(PlayerStatus.PAUSED)
         }
     }
-    fun stop() { if (!isReleased) { mediaPlayer.stop(); updateStatus(PlayerStatus.IDLE) } }
+    fun stop() { if (!isReleased) {
+        playbackRequested = false
+        retryJob?.cancel(); retryJob = null
+        retryPolicy.reset(); generation++
+        attachListener()
+        mediaPlayer.stop(); updateStatus(PlayerStatus.IDLE)
+    } }
     fun isPlaying(): Boolean = !isReleased && mediaPlayer.isPlaying
 
     fun setVolume(vol: Int) {
@@ -121,6 +190,7 @@ class VlcPlayerController internal constructor(
     fun release() {
         if (isReleased) return
         isReleased = true
+        retryScope.cancel()
         mainHandler.removeCallbacksAndMessages(null)
         updateStatus(PlayerStatus.IDLE)
         try {
@@ -130,6 +200,12 @@ class VlcPlayerController internal constructor(
             try { mediaPlayer.release() } finally { libVLC.release() }
         }
     }
+}
+
+internal class PlaybackRetryPolicy {
+    private var count = 0
+    fun nextDelayMillis(): Long? = if (count >= 3) null else 1000L shl count++
+    fun reset() { count = 0 }
 }
 
 /** Buffer completion is not proof of playback: wait for the native Playing event. */

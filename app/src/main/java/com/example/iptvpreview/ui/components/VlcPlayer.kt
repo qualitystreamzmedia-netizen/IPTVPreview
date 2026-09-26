@@ -79,17 +79,7 @@ fun VlcPlayer(
         controller.stop()
         error = null
         if (!streamUrl.isNullOrBlank()) {
-            try {
-                val media = Media(libVlc, Uri.parse(streamUrl))
-                try {
-                    // Prefer hardware decoding, while allowing software fallback.
-                    media.setHWDecoderEnabled(true, false)
-                    player.media = media
-                } finally { media.release() }
-                controller.play()
-            } catch (_: Exception) {
-                controller.reportError()
-            }
+            controller.playUrl(streamUrl)
         }
     }
 
