@@ -115,7 +115,17 @@ class PlayerViewModel(private val repo: IptvRepository) : ViewModel() {
     val searchQuery = repo.searchQuery.stateIn(viewModelScope, SharingStarted.Eagerly, "")
     private val _selectedPlaylistId = MutableStateFlow<String?>(null)
     val selectedPlaylistId = _selectedPlaylistId.asStateFlow()
-    fun selectPlaylist(id: String?) { _selectedPlaylistId.value = id }
+    fun selectPlaylist(id: String?) {
+        _selectedPlaylistId.value = id
+        channelFocus.select(0, 1)
+    }
+    private val _showFavoritesOnly = MutableStateFlow(false)
+    val showFavoritesOnly = _showFavoritesOnly.asStateFlow()
+    fun setFavoritesOnly(enabled: Boolean) {
+        _showFavoritesOnly.value = enabled
+        channelFocus.select(0, 1)
+    }
+    fun toggleFavorites() = setFavoritesOnly(!_showFavoritesOnly.value)
     val customCategoryOrders = repo.customCategoryOrders.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
     val editableCategories = combine(repo.allChannels, selectedPlaylistId, customCategoryOrders, allCategories) { all, id, orders, categories ->
         if (id == null) emptyList() else {
@@ -147,8 +157,8 @@ class PlayerViewModel(private val repo: IptvRepository) : ViewModel() {
         }
     }
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    private val databaseChannels = combine(selectedPlaylistId, repo.searchQuery) { id, query -> id to query }
-        .flatMapLatest { (id, query) -> repo.getFilteredChannels(id, query, false) }
+    private val databaseChannels = combine(selectedPlaylistId, repo.searchQuery, showFavoritesOnly) { id, query, favorites -> Triple(id, query, favorites) }
+        .flatMapLatest { (id, query, favorites) -> repo.getFilteredChannels(id, query, favorites) }
     val displayedChannels = combine(databaseChannels, repo.visibleChannels, selectedPlaylistId, customCategoryOrders) { channels, allChannels, selectedId, orders ->
         val source = allChannels.filter { selectedId == null || it.playlistId == selectedId }
         val allowed = source.map { it.id }.toHashSet()
@@ -165,9 +175,9 @@ class PlayerViewModel(private val repo: IptvRepository) : ViewModel() {
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
     val searchedChannels = displayedChannels
-    fun updateSearch(query: String) = repo.setSearchQuery(query)
+    fun updateSearch(query: String) { repo.setSearchQuery(query); channelFocus.select(0, 1) }
     fun setSearchQuery(query: String) = updateSearch(query)
-    fun clearSearch() = repo.clearSearch()
+    fun clearSearch() = updateSearch("")
     val isLoading = repo.isLoading.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val error = repo.error.stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val epgMap = repo.epgMap

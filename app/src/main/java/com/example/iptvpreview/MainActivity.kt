@@ -211,7 +211,7 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
     var showSettingsDialog by remember { mutableStateOf(false) }
     var isSearchActive by rememberSaveable { mutableStateOf(false) }
     var showManagerDialog by remember { mutableStateOf(false) }
-    var filterByFavorites by remember { mutableStateOf(false) }
+    val filterByFavorites by viewModel.showFavoritesOnly.collectAsState()
     var playbackError by remember { mutableStateOf<String?>(null) }
     var vlcController by remember { mutableStateOf<VlcPlayerController?>(null) }
     var playbackAttempt by remember { mutableIntStateOf(0) }
@@ -472,7 +472,7 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
                     if (onNavigateToDashboard != null) TextButton(onClick = onNavigateToDashboard) { Text("Dashboard") }
                     IconButton(onClick = onParentalControls) { Icon(Icons.Default.Lock, "Parental Controls") }
                     TextButton(onClick = { showManagerDialog = true }) { Text("Manage") }
-                    IconButton(onClick = { filterByFavorites = !filterByFavorites }) {
+                    IconButton(onClick = { viewModel.toggleFavorites() }) {
                         Icon(
                             imageVector = if(filterByFavorites) Icons.Default.Star else Icons.Outlined.StarBorder,
                             contentDescription = "Filter Favorites",
@@ -519,9 +519,9 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
             }, onItemClick = { item ->
                 selectedCategory = null
                 when (item) {
-                    NavItem.HOME -> { filterRecent = false; filterByFavorites = false }
-                    NavItem.FAVORITES -> { filterByFavorites = true; filterRecent = false }
-                    NavItem.RECENT -> { filterRecent = true; filterByFavorites = false }
+                    NavItem.HOME -> { filterRecent = false; viewModel.setFavoritesOnly(false) }
+                    NavItem.FAVORITES -> { viewModel.setFavoritesOnly(true); filterRecent = false }
+                    NavItem.RECENT -> { filterRecent = true; viewModel.setFavoritesOnly(false) }
                     NavItem.GUIDE -> showProgramInfo = true
                 }
             }, isFocused = currentFocus == FocusArea.NAV_RAIL,
@@ -969,5 +969,3 @@ fun VideoPlayerComponent(url: String) {
         modifier = Modifier.fillMaxSize()
     )
 }
-
-
