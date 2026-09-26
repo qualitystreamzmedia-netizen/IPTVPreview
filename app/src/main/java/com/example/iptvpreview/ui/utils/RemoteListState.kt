@@ -16,6 +16,10 @@ class ListNavigationState(initialIndex: Int = 0) {
         selectedIndex = index.coerceIn(0, (itemCount - 1).coerceAtLeast(0))
     }
 
+    fun moveBy(delta: Int, maxIndex: Int) {
+        selectedIndex = (selectedIndex.toLong() + delta).coerceIn(0L, maxIndex.coerceAtLeast(0).toLong()).toInt()
+    }
+
     fun handle(action: RemoteAction, itemCount: Int, onActivate: (Int) -> Unit): Boolean {
         select(selectedIndex, itemCount)
         if (itemCount <= 0) return false
@@ -36,15 +40,17 @@ fun rememberRemoteListState(
     remoteActions: Flow<RemoteAction>,
     initialIndex: Int = 0,
     enabled: Boolean = true,
-    onActivate: (Int) -> Unit = {}
+    onActivate: (Int) -> Unit = {},
+    navigationState: ListNavigationState? = null
 ): ListNavigationState {
-    val state = remember { ListNavigationState(initialIndex.coerceIn(0, (itemCount - 1).coerceAtLeast(0))) }
+    val localState = remember { ListNavigationState(initialIndex.coerceIn(0, (itemCount - 1).coerceAtLeast(0))) }
+    val state = navigationState ?: localState
     val count by rememberUpdatedState(itemCount)
     val active by rememberUpdatedState(enabled)
     val activate by rememberUpdatedState(onActivate)
     val owner = LocalLifecycleOwner.current
     SideEffect { state.select(state.selectedIndex, itemCount) }
-    LaunchedEffect(remoteActions, owner) {
+    LaunchedEffect(remoteActions, owner, state) {
         owner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             remoteActions.collect { if (active) state.handle(it, count, activate) }
         }

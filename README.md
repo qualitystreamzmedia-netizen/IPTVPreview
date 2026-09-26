@@ -56,3 +56,6 @@ Call `ImportPlaylistWorker.enqueue(context, url, playlistId)` to schedule a netw
 The worker streams a maximum 100 MB download to a temporary file, then parses line by line and inserts batches of 1,000 rows in one outer Room transaction. Invalid/empty input and cancellation roll back the replacement. Room favorites survive refresh; other playlists remain untouched. Transient HTTP/network failures retry at most three attempts with exponential backoff. Temporary files are removed on completion. A cancelable foreground notification and dataSync service declaration are included.
 
 This entry point imports M3U into the basic Room channel table. The existing playlist-settings UI still uses its original importer; it does not yet enqueue this worker or read this cache. Xtream imports, logo/EPG metadata persistence, and notification permission UX are not migrated here. Android 13+ users may need to allow notifications in system settings to see the foreground notification in the drawer.
+
+Channel navigation now uses ViewModel-owned observable focus state. Category focus reports the actual focused row (zero is All Channels), and indices are clamped as lists shrink. Left/Right retain native pane navigation; the event stream is not processed twice.
+

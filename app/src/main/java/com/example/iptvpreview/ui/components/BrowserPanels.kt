@@ -6,6 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -37,7 +39,8 @@ import java.util.Date
 @Composable
 fun CategorySidebar(categories: List<Category>, selectedCategory: String?, onSelect: (String?) -> Unit,
     modifier: Modifier = Modifier, selectedPlaylistName: String? = null, onEditOrder: (() -> Unit)? = null,
-    listState: LazyListState = rememberLazyListState(), isFocused: Boolean = false) {
+    listState: LazyListState = rememberLazyListState(), isFocused: Boolean = false,
+    onFocusIndexChanged: (Int) -> Unit = {}) {
     Column(modifier.background(if (isFocused) Color.DarkGray.copy(alpha = 0.3f) else Color.Transparent).padding(top = 16.dp)) {
         val headerText = selectedCategory ?: selectedPlaylistName ?: "ALL CATEGORIES"
         Row(Modifier.fillMaxWidth().padding(start = 16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -49,10 +52,11 @@ fun CategorySidebar(categories: List<Category>, selectedCategory: String?, onSel
         }
         ListItem(headlineContent = { Text("All Channels") }, leadingContent = { Icon(Icons.Default.GridView, null) },
             colors = ListItemDefaults.colors(containerColor = if (selectedCategory == null) MaterialTheme.colorScheme.primaryContainer else Color.Transparent),
-            modifier = Modifier.clickable { onSelect(null) })
+            modifier = Modifier.onFocusChanged { if (it.isFocused) onFocusIndexChanged(0) }
+                .clickable { onFocusIndexChanged(0); onSelect(null) })
         Divider()
         LazyColumn(state = listState) {
-            items(categories.filterNot { it.isHidden }, key = { it.name }) { category ->
+            itemsIndexed(categories.filterNot { it.isHidden }, key = { _, category -> category.name }) { index, category ->
                 val selected = selectedCategory == category.name
                 ListItem(headlineContent = {
                     Text(category.name, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -62,7 +66,9 @@ fun CategorySidebar(categories: List<Category>, selectedCategory: String?, onSel
                     leadingContent = { Icon(Icons.Default.Label, null,
                         tint = if (selected) MaterialTheme.colorScheme.secondary else Color.Gray) },
                     colors = ListItemDefaults.colors(containerColor = if (selected) MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f) else Color.Transparent),
-                    modifier = Modifier.padding(horizontal = 8.dp).clickable { onSelect(category.name) })
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                        .onFocusChanged { if (it.isFocused) onFocusIndexChanged(index + 1) }
+                        .clickable { onFocusIndexChanged(index + 1); onSelect(category.name) })
             }
         }
     }

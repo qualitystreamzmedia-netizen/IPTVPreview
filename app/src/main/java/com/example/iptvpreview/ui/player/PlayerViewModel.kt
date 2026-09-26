@@ -13,6 +13,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class PlayerViewModel(private val repo: IptvRepository) : ViewModel() {
+    val channelFocus = com.example.iptvpreview.ui.utils.ListNavigationState()
+    private val categoryFocus = com.example.iptvpreview.ui.utils.ListNavigationState()
+    val focusedChannelIndex: Int get() = channelFocus.selectedIndex
+    // Zero represents "All Channels"; category rows start at one.
+    val focusedCategoryIndex: Int get() = categoryFocus.selectedIndex
+    fun moveFocusDown(maxIndex: Int) = channelFocus.moveBy(1, maxIndex)
+    fun moveFocusUp(maxIndex: Int) = channelFocus.moveBy(-1, maxIndex)
+    fun setFocusedCategory(index: Int, categoryCount: Int) = categoryFocus.select(index, categoryCount + 1)
+
     val uiScale = repo.uiScale.stateIn(viewModelScope, SharingStarted.Eagerly, 1f)
     val uiSettingsError = repo.uiSettingsError
     fun updateUiScale(scale: Float) = setUiScale(scale)

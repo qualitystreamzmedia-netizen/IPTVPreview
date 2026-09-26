@@ -240,6 +240,9 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
         if (filterRecent) filtered.sortedBy { recentOrder[it.id] } else filtered
     }
     val sidebarCategories = categories
+    LaunchedEffect(sidebarCategories) {
+        viewModel.setFocusedCategory(viewModel.focusedCategoryIndex, sidebarCategories.count { !it.isHidden })
+    }
     LaunchedEffect(categories) {
         if (selectedCategory != null && categories.none { !it.isHidden && it.name == selectedCategory }) selectedCategory = null
     }
@@ -332,7 +335,7 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
     }
     val listNavigation = rememberRemoteListState(visibleChannels.size, remoteActions,
         enabled = channelListFocused && !showSettingsDialog && !showProgramInfo,
-        onActivate = activateChannel)
+        onActivate = activateChannel, navigationState = viewModel.channelFocus)
     LaunchedEffect(searchQuery, selectedCategory, filterByFavorites, selectedPlaylistId, filterRecent) {
         listNavigation.select(0, visibleChannels.size)
         if (visibleChannels.isNotEmpty()) channelListScroll.scrollToItem(0)
@@ -499,7 +502,8 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
                     .onFocusChanged { if (it.hasFocus) navController.setFocus(FocusArea.CATEGORY_LIST) }.focusGroup(),
                 selectedPlaylistName = playlists.find { it.id == selectedPlaylistId }?.name,
                 onEditOrder = onManageCategoryOrder, listState = categoryListScroll,
-                isFocused = currentFocus == FocusArea.CATEGORY_LIST)
+                isFocused = currentFocus == FocusArea.CATEGORY_LIST,
+                onFocusIndexChanged = { viewModel.setFocusedCategory(it, sidebarCategories.count { cat -> !cat.isHidden }) })
             ResizableDivider(enabled = !expandedPlayer, onResize = resizeCategories,
                 onStep = { deltaDp -> resizeCategories(with(density) { deltaDp.dp.toPx() }) },
                 label = "Resize categories and channels", resizedPanel = "categories")

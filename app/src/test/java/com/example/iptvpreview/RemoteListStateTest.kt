@@ -6,6 +6,18 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class RemoteListStateTest {
+    @Test fun movementClampsEmptyShrinkingAndExtremeBounds() {
+        val state = ListNavigationState(5)
+        state.moveBy(1, -1)
+        assertEquals(0, state.selectedIndex)
+        state.moveBy(Int.MAX_VALUE, Int.MAX_VALUE)
+        state.moveBy(1, Int.MAX_VALUE)
+        assertEquals(Int.MAX_VALUE, state.selectedIndex)
+        state.moveBy(-1, 2)
+        assertEquals(2, state.selectedIndex)
+        state.moveBy(-10, 2)
+        assertEquals(0, state.selectedIndex)
+    }
     @Test fun repeatedPressesAndBoundaries() {
         val state = ListNavigationState()
         repeat(8) { state.handle(RemoteAction.DOWN, 3) {} }
