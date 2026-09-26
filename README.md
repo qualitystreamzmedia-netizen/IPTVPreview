@@ -67,3 +67,5 @@ EpgDao.getCurrentProgram(channelId, now) maps Room columns to the existing EpgPr
 VLC now retries playback errors up to three times with 1/2/4-second delays. Playing resets the counter; pause, stop, release and channel changes cancel pending retries. URL loading is owned by the controller, and generation tokens discard queued events from older attempts. Retry policy unit tests pass; live-network recovery is not yet verified end-to-end.
 
 The dashboard toolbar now uses IPTV Pro branding, a rounded playlist selector, a collapsible search field and a Dashboard action. Closing search clears the repository query. Search bypasses the category filter while retaining playlist and Favorites/Recent scope. Existing playback, guide, parental controls and resizable panes remain connected; placeholder VLC and Recent implementations from the mockup are not used.
+
+Room compilation uses KSP 1.9.22-1.0.17 with Kotlin 1.9.22. Runtime dependencies remain Room 2.6.1, WorkManager 2.9.0 and coroutines-android 1.8.0. Schema export remains enabled.
