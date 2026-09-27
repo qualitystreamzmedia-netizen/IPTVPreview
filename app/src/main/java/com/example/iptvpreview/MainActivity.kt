@@ -452,8 +452,14 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
                 ?: "No programme information available. Add an XMLTV guide in Settings.") },
             confirmButton = { TextButton(onClick = { showProgramInfo = false }) { Text("Done") } })
     }
-    var leftWeight by rememberSaveable { mutableFloatStateOf(0.4f) }
+    val layoutPreset by viewModel.layoutPreset.collectAsState()
+    val manualResize by viewModel.manualResize.collectAsState()
+    var leftWeight by rememberSaveable { mutableFloatStateOf(0.55f) }
     var catWeight by rememberSaveable { mutableFloatStateOf(0.3f) }
+    LaunchedEffect(layoutPreset, manualResize) {
+        leftWeight = layoutPreset.browserWeight
+        catWeight = layoutPreset.categoryWeight
+    }
     val density = LocalDensity.current
     Scaffold(
         snackbarHost = { if (!inPip) SnackbarHost(snackbarHostState) },
@@ -580,7 +586,7 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
                     val maxIndex = sidebarCategories.count { !it.isHidden } // Includes All Channels at index zero.
                     if (down) viewModel.moveFocusDown(maxIndex) else viewModel.moveFocusUp(maxIndex)
                 }, onRemoteSelect = viewModel::selectItem)
-            ResizableDivider(enabled = !expandedPlayer, onResize = resizeCategories,
+            ResizableDivider(enabled = !expandedPlayer && manualResize, collapsed = expandedPlayer, onResize = resizeCategories,
                 onStep = { deltaDp -> resizeCategories(with(density) { deltaDp.dp.toPx() }) },
                 label = "Resize categories and channels", resizedPanel = "categories")
             
@@ -648,7 +654,7 @@ fun IptvApp(viewModel: PlayerViewModel, remoteActions: Flow<MainActivity.RemoteA
                 }
             }
             // RIGHT: PLAYER
-            ResizableDivider(enabled = !expandedPlayer,
+            ResizableDivider(enabled = !expandedPlayer && manualResize, collapsed = expandedPlayer,
                 onResize = resizeBrowser,
                 onStep = { deltaDp -> resizeBrowser(with(density) { deltaDp.dp.toPx() }) })
             PlayerInfoPanel(channel = selectedChannel, controller = vlcController,
@@ -885,6 +891,9 @@ fun SettingsDialog(
     onEpgClear: () -> Unit,
     viewModel: PlayerViewModel
 ) {
+    val layoutPreset by viewModel.layoutPreset.collectAsState()
+    val manualResize by viewModel.manualResize.collectAsState()
+    val layoutError by viewModel.layoutError.collectAsState()
     val savedScale by viewModel.uiScale.collectAsState()
     val scaleError by viewModel.uiSettingsError.collectAsState()
     var tempScale by remember(savedScale) { mutableFloatStateOf(savedScale.coerceIn(0.7f, 1.3f)) }
@@ -921,6 +930,23 @@ fun SettingsDialog(
                     OutlinedTextField(value = xUser, onValueChange = { xUser = it }, label = { Text("Username") }, singleLine = true)
                     OutlinedTextField(value = xPass, onValueChange = { xPass = it }, label = { Text("Password") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
                 } else if (tab == 3) {
+                    Text("Layout", style = MaterialTheme.typography.titleMedium)
+                    Text("Choose a preset. Changes apply immediately.", style = MaterialTheme.typography.bodySmall)
+                    com.example.iptvpreview.data.LayoutPreset.entries.forEach { preset ->
+                        Row(Modifier.fillMaxWidth().clickable { viewModel.setLayoutPreset(preset) }.padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(selected = layoutPreset == preset, onClick = { viewModel.setLayoutPreset(preset) })
+                            Text(preset.label)
+                        }
+                    }
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Manual column resizing", Modifier.weight(1f))
+                        Switch(checked = manualResize, onCheckedChange = viewModel::setManualResize)
+                    }
+                    Text("Enable draggable dividers for mouse or touch. Turning this off restores the selected preset.",
+                        style = MaterialTheme.typography.bodySmall)
+                    layoutError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                    Spacer(Modifier.height(16.dp))
                     Text("Interface Scale", style = MaterialTheme.typography.titleMedium)
                     Text("Adjust text size to fit more channels or improve readability.",
                         style = MaterialTheme.typography.bodySmall, color = Color.Gray)

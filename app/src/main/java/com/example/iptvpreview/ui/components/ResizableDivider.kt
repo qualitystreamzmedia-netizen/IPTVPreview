@@ -11,7 +11,8 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun ResizableDivider(enabled: Boolean, onResize: (Float) -> Unit, onStep: (Float) -> Unit,
-    label: String = "Resize browser and player", resizedPanel: String = "browser") {
+    label: String = "Resize browser and player", resizedPanel: String = "browser", collapsed: Boolean = false) {
+    if (!enabled) { Spacer(Modifier.width(if (collapsed) 0.dp else 8.dp).fillMaxHeight()); return }
     Box(
         Modifier.width(if (enabled) 8.dp else 0.dp).fillMaxHeight()
             .semantics {

@@ -55,6 +55,19 @@ class PlayerViewModel(private val repo: IptvRepository) : ViewModel() {
 
     val uiScale = repo.uiScale.stateIn(viewModelScope, SharingStarted.Eagerly, 1f)
     val uiSettingsError = repo.uiSettingsError
+    val layoutPreset = repo.layoutPreset.stateIn(viewModelScope, SharingStarted.Eagerly, com.example.iptvpreview.data.LayoutPreset.BALANCED)
+    val manualResize = repo.manualResize.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    private val layoutErrorState = MutableStateFlow<String?>(null)
+    val layoutError = layoutErrorState.asStateFlow()
+    private fun saveLayout(action: suspend () -> Unit) {
+        viewModelScope.launch {
+            try { action(); layoutErrorState.value = null }
+            catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (_: Exception) { layoutErrorState.value = "Could not save layout settings. Please try again." }
+        }
+    }
+    fun setLayoutPreset(preset: com.example.iptvpreview.data.LayoutPreset) = saveLayout { repo.setLayoutPreset(preset) }
+    fun setManualResize(enabled: Boolean) = saveLayout { repo.setManualResize(enabled) }
     fun updateUiScale(scale: Float) = setUiScale(scale)
     fun setUiScale(scale: Float) {
         require(scale.isFinite() && scale > 0f) { "UI scale must be a finite positive number." }

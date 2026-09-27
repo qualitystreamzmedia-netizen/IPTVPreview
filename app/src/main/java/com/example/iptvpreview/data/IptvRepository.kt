@@ -90,6 +90,14 @@ class IptvRepository(
         store.edit { it.remove(customOrderKey(playlistId)) }
     }
     private val uiScaleKey = floatPreferencesKey("ui_scale_factor")
+    private val layoutPresetKey = stringPreferencesKey("layout_preset")
+    private val manualResizeKey = androidx.datastore.preferences.core.booleanPreferencesKey("manual_resize")
+    val layoutPreset = store.data.map { prefs ->
+        LayoutPreset.entries.find { it.name == prefs[layoutPresetKey] } ?: LayoutPreset.BALANCED
+    }.distinctUntilChanged()
+    val manualResize = store.data.map { it[manualResizeKey] ?: false }.distinctUntilChanged()
+    suspend fun setLayoutPreset(preset: LayoutPreset) { store.edit { it[layoutPresetKey] = preset.name } }
+    suspend fun setManualResize(enabled: Boolean) { store.edit { it[manualResizeKey] = enabled } }
     private val uiSettingsErrorState = MutableStateFlow<String?>(null)
     val uiSettingsError = uiSettingsErrorState.asStateFlow()
     val uiScale = store.data.catch { error ->
